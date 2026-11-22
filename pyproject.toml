@@ -1,0 +1,64 @@
+[project]
+name = "tui-z"
+version = "0.1.0"
+description = "Tailwind-style utility classes and components for Python terminal UIs (built on Textual)"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Zalshy", email = "zalshy@pm.me" }]
+keywords = ["tui", "terminal", "textual", "tailwind", "utility-css", "dashboard", "cli", "ui"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: User Interfaces",
+    "Topic :: Terminals",
+    "Typing :: Typed",
+]
+dependencies = [
+    "textual>=8.2.8",
+]
+
+[project.urls]
+Homepage = "https://github.com/Zalshy/tui-z"
+Documentation = "https://github.com/Zalshy/tui-z/tree/main/docs"
+Issues = "https://github.com/Zalshy/tui-z/issues"
+Changelog = "https://github.com/Zalshy/tui-z/blob/main/CHANGELOG.md"
+
+[build-system]
+requires = ["uv_build>=0.13.9,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "cairosvg>=2.9.1",
+    "pillow>=13.0.0",
+    "pytest>=9.2.0",
+    "pytest-asyncio>=1.5.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "C4", "RUF", "PL", "ISC"]
+ignore = [
+    "RUF012",   # Textual's BINDINGS/CSS class attributes are idiomatic lists
+    "C408",     # dict(...) reads better for theme palettes
+    "SIM117",   # nested `with` mirrors the widget tree in compose()
+    "PLR0913", "PLR0912", "PLR0915", "PLR2004", "PLC0415",
+    "E501", "B905", "PLR0911", "RUF001", "RUF002", "RUF003", "E731",
+]
