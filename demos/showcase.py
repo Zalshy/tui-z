@@ -117,13 +117,42 @@ class DecisionCard(Row):
         )
 
 
-FILL = "lg:h-full"  # stretch a panel to its grid row
+# md+ (120+ columns): the panel grid fills the screen, panels stretch to their
+# grid row and charts / tables grow inside them. lg+ (160+) also fits the agent
+# log on screen; on md it sits just below. Under 120 columns the single column
+# scrolls at fixed heights. A minimum height keeps short terminals scrolling
+# instead of squashing the panels.
+FILL = "md:h-full"  # stretch a panel to its grid row
+
+DECISIONS = [  # (kind, note, color)
+    ("Skip · QNT", "Costs 4.1% over the 4% cap", "warning"),
+    ("Label · SL", "-38% first at 22 min · training", "success"),
+    ("Block · GRD", "14 wallets bought 48% in slot 0", "error"),
+    ("Trade entry", "Passed QNT + GRD · 0.61 SOL", "info"),
+    ("Label · TP", "+68% first at 47 min · training", "purple"),
+]
+DECISION_TOKENS = ["$ORCHID", "$QUARTZ", "$TANGLE", "$MAPLE", "$LUMEN", "$CINDER", "$HARBOR", "$WILLOW"]
+MAX_DECISIONS = 12  # enough cards to fill a tall panel; older ones are dropped
+
+
+def decision(i: int, token: int, score: int) -> DecisionCard:
+    kind, note, color = DECISIONS[i % len(DECISIONS)]
+    return DecisionCard(kind, DECISION_TOKENS[token % len(DECISION_TOKENS)], note, score, color)
+
+
+LEADERS = [(f"0x{a}…{b}", pnl, tx) for a, b, pnl, tx in [
+    ("87cc", "aa20", 312.0, 847), ("3f4a", "c91e", 199.8, 1204), ("5e80", "3c99", 184.2, 432),
+    ("a12b", "5f3d", 97.4, 2891), ("1d9e", "b47a", 44.1, 318), ("c241", "e054", 38.6, 129),
+    ("f03c", "217b", 31.2, 2210), ("5e80", "3c19", 24.9, 77), ("9b1a", "0d42", 18.3, 640),
+    ("44e7", "c3a8", 12.7, 955), ("7d02", "e9f1", 9.4, 213), ("b6c5", "18aa", 5.1, 48),
+]]
 
 
 def dashboard() -> ComposeResult:
     # lg+: the dashboard fills the screen; panels stretch to their row, and charts,
     # tables and the log grow to fill their panel. Smaller screens scroll instead.
-    with Grid(cls="grid-cols-1 lg:grid-cols-3 gap-1 h-auto lg:h-fr lg:grid-rows-[5fr_3fr]"):
+    with Grid(cls="grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-1 h-auto "
+                  "md:h-full md:grid-rows-[4fr_3fr_3fr] md:min-h-40 lg:h-fr lg:grid-rows-[5fr_3fr] lg:min-h-30"):
         # -- core model: big number + area chart ---------------------------
         yield Panel(
             Row(
@@ -134,7 +163,7 @@ def dashboard() -> ComposeResult:
                     cls="w-30 mr-2"),
                 Sparkline(revert(60, 12, 12, 2), "h-5 text-success", lo=0, id="labels-spark"),
             ),
-            LineChart(revert(200, 60, 60, 2.5), "h-8 lg:h-fr text-success mt-1", fill=True, id="core-chart"),
+            LineChart(revert(200, 60, 60, 2.5), "h-8 md:h-fr text-success mt-1", fill=True, id="core-chart"),
             title="Core model", subtitle="in training",
             badge=Badge("Research", cls="bg-info/20 text-info"), cls=FILL,
         )
@@ -142,7 +171,7 @@ def dashboard() -> ComposeResult:
         # live price (foreground) + two simulated paths, all streamed in lock-step
         paths = [(revert(240, 1.0, 1.05, 0.035, 0.02), c) for c in EXIT_COLORS]
         yield Panel(
-            LineChart(revert(240, 1.0, 1.05, 0.025, 0.02), "h-12 lg:h-fr text-foreground", id="exit-chart",
+            LineChart(revert(240, 1.0, 1.05, 0.025, 0.02), "h-12 md:h-fr text-foreground", id="exit-chart",
                       series=paths, marks=[(1.4, "success", " TP +40%"), (0.7, "error", " STOP -30%")],
                       lo=0.5, hi=1.6),
             Row(Stat("P(TP)", "0.37", cls="w-10", value_cls="text-success"),
@@ -156,11 +185,8 @@ def dashboard() -> ComposeResult:
         )
         # -- decision stack --------------------------------------------------
         yield Panel(
-            DecisionCard("Skip · QNT", "$ORCHID", "Costs 4.1% over the 4% cap", 50, "warning"),
-            DecisionCard("Label · SL", "$QUARTZ", "-38% first at 22 min · training", 39, "success"),
-            DecisionCard("Block · GRD", "$TANGLE", "14 wallets bought 48% in slot 0", 7, "error"),
-            DecisionCard("Trade entry", "$MAPLE", "Passed QNT + GRD · 0.61 SOL", 93, "info"),
-            DecisionCard("Label · TP", "$LUMEN", "+68% first at 47 min · training", 92, "purple"),
+            Col(*[decision(i, i, score) for i, score in enumerate([50, 39, 7, 93, 92, 61, 18, 77, 44, 85])],
+                id="decisions", cls="h-15 md:h-fr overflow-hidden"),
             title="Decision stack", subtitle="newest on top",
             badge=Badge("● Live", cls="bg-error/20 text-error"), cls=FILL,
         )
@@ -169,12 +195,9 @@ def dashboard() -> ComposeResult:
             Table(
                 [("#", "w-4 text-muted"), ("Wallet", "w-14 text-info"),
                  ("PnL", "w-fr text-right text-success bold"), ("Tx", "w-8 text-right text-muted")],
-                [[("#1", "text-warning bold"), "0x87cc…aa20", "+$312.0k", "847"],
-                 ["#2", "0x3f4a…c91e", "+$184.2k", "1204"],
-                 ["#3", "0x5e80…3c99", "+$199.8k", "432"],
-                 ["#4", "0xa12b…5f3d", "+$97.4k", "2891"],
-                 ["#5", "0x1d9e…b47a", "+$44.1k", "318"]],
-                row_cls="hover:bg-boost odd:bg-panel/40",
+                [[(f"#{i}", "text-warning bold") if i == 1 else f"#{i}", wallet, f"+${pnl:.1f}k", str(tx)]
+                 for i, (wallet, pnl, tx) in enumerate(LEADERS, 1)],
+                "h-7 md:h-fr scrollbar-none", row_cls="hover:bg-boost odd:bg-panel/40",
             ),
             title="Arber leaderboard", badge=Badge("30D"), cls=FILL,
         )
@@ -183,14 +206,14 @@ def dashboard() -> ComposeResult:
             Table(
                 [("Time", "w-9 text-muted"), ("Side", "w-5"), ("SOL", "w-7 text-right"),
                  ("Price", "w-fr text-right")],
-                [], "lg:h-fr scrollbar-none", row_cls="hover:bg-boost", max_rows=40, id="tape",
+                [], "h-9 md:h-fr scrollbar-none", row_cls="hover:bg-boost", max_rows=40, id="tape",
             ),
             title="Trade tape", subtitle="time & sales", cls=FILL,
         )
         # -- slot river: column chart ------------------------------------------
         yield Panel(
             Sparkline([abs(math.sin(i / 3)) * 10 + random.random() * 5 for i in range(200)],
-                      "h-7 lg:h-fr text-blue", lo=0, hi=15, id="river"),
+                      "h-7 md:h-fr text-blue", lo=0, hi=15, id="river"),
             Row(Badge("Mainnet", cls="bg-success/20 text-success mr-1"),
                 Text("SLOT 371,911,229 · 400 MS · BUILDING 26%", "text-muted truncate")),
             title="Slot river", cls=FILL,
@@ -199,7 +222,7 @@ def dashboard() -> ComposeResult:
         LogView(cls="h-12 lg:h-fr", id="log"),
         title="Agent log", subtitle="tail -f · six agents",
         badge=Badge("1 / s", cls="bg-teal/20 text-teal"),
-        cls="mt-1 lg:h-[25%] lg:min-h-7",
+        cls="mt-1 lg:h-[25%] lg:min-h-8",
     )
 
 
@@ -454,6 +477,7 @@ class Showcase(TwApp):
         self.w_progress = self.query_one("#progress", ProgressBar)
         self.w_log = self.query_one("#log", LogView)
         self.w_tape = self.query_one("#tape", Table)
+        self.w_decisions = self.query_one("#decisions", Col)
         self.w_labels = self.query_one("#labels", Digits)
         self.w_swatches = list(self.query(Swatch))
 
@@ -466,6 +490,7 @@ class Showcase(TwApp):
         self.set_interval(1.0, self._tick_clock)
         self.set_interval(0.25, self._tick_fast)
         self.set_interval(0.9, self._tick_log)
+        self.set_interval(2.5, self._tick_decision)
         self._tick_clock()
 
     def _on_theme(self, theme: Theme) -> None:
@@ -490,6 +515,12 @@ class Showcase(TwApp):
         self.w_progress.advance(1)
         if self.w_progress.percentage == 1:
             self.w_progress.progress = 0
+
+    def _tick_decision(self) -> None:
+        """Newest decision on top; the oldest falls off the bottom."""
+        self.w_decisions.mount(decision(random.randrange(5), random.randrange(8), random.randrange(3, 99)), before=0)
+        for old in self.w_decisions.children[MAX_DECISIONS:]:
+            old.remove()
 
     def _tick_log(self) -> None:
         name = random.choice(list(TAGS))
