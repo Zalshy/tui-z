@@ -61,7 +61,6 @@ uv run python demos/showcase.py
 - **Charts**: `Bar`, `Sparkline`, `LineChart`, all streaming live
 - **Themes**: Catppuccin, Tokyo Night and two of our own. Switch anytime.
 - **Responsive**: `md:grid-cols-2` adapts to the terminal width
-- **Fast**: tables and logs only draw what's on screen
 
 ## Docs
 
