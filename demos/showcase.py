@@ -117,8 +117,13 @@ class DecisionCard(Row):
         )
 
 
+FILL = "lg:h-full"  # stretch a panel to its grid row
+
+
 def dashboard() -> ComposeResult:
-    with Grid(cls="grid-cols-1 lg:grid-cols-3 gap-1 h-auto"):
+    # lg+: the dashboard fills the screen; panels stretch to their row, and charts,
+    # tables and the log grow to fill their panel. Smaller screens scroll instead.
+    with Grid(cls="grid-cols-1 lg:grid-cols-3 gap-1 h-auto lg:h-fr lg:grid-rows-[5fr_3fr]"):
         # -- core model: big number + area chart ---------------------------
         yield Panel(
             Row(
@@ -129,15 +134,15 @@ def dashboard() -> ComposeResult:
                     cls="w-30 mr-2"),
                 Sparkline(revert(60, 12, 12, 2), "h-5 text-success", lo=0, id="labels-spark"),
             ),
-            LineChart(revert(200, 60, 60, 2.5), "h-8 text-success mt-1", fill=True, id="core-chart"),
+            LineChart(revert(200, 60, 60, 2.5), "h-8 lg:h-fr text-success mt-1", fill=True, id="core-chart"),
             title="Core model", subtitle="in training",
-            badge=Badge("Research", cls="bg-info/20 text-info"),
+            badge=Badge("Research", cls="bg-info/20 text-info"), cls=FILL,
         )
         # -- exit simulator: many paths + marks -----------------------------
         # live price (foreground) + two simulated paths, all streamed in lock-step
         paths = [(revert(240, 1.0, 1.05, 0.035, 0.02), c) for c in EXIT_COLORS]
         yield Panel(
-            LineChart(revert(240, 1.0, 1.05, 0.025, 0.02), "h-12 text-foreground", id="exit-chart",
+            LineChart(revert(240, 1.0, 1.05, 0.025, 0.02), "h-12 lg:h-fr text-foreground", id="exit-chart",
                       series=paths, marks=[(1.4, "success", " TP +40%"), (0.7, "error", " STOP -30%")],
                       lo=0.5, hi=1.6),
             Row(Stat("P(TP)", "0.37", cls="w-10", value_cls="text-success"),
@@ -147,7 +152,7 @@ def dashboard() -> ComposeResult:
                 Stat("Median exit", "41 MIN", cls="w-14", value_cls="text-info"),
                 cls="mt-1"),
             title="Exit simulator", subtitle="monte carlo · three barriers",
-            badge=Badge("3 paths", cls="bg-purple/20 text-purple"),
+            badge=Badge("3 paths", cls="bg-purple/20 text-purple"), cls=FILL,
         )
         # -- decision stack --------------------------------------------------
         yield Panel(
@@ -157,7 +162,7 @@ def dashboard() -> ComposeResult:
             DecisionCard("Trade entry", "$MAPLE", "Passed QNT + GRD · 0.61 SOL", 93, "info"),
             DecisionCard("Label · TP", "$LUMEN", "+68% first at 47 min · training", 92, "purple"),
             title="Decision stack", subtitle="newest on top",
-            badge=Badge("● Live", cls="bg-error/20 text-error"),
+            badge=Badge("● Live", cls="bg-error/20 text-error"), cls=FILL,
         )
         # -- leaderboard -----------------------------------------------------
         yield Panel(
@@ -171,30 +176,30 @@ def dashboard() -> ComposeResult:
                  ["#5", "0x1d9e…b47a", "+$44.1k", "318"]],
                 row_cls="hover:bg-boost odd:bg-panel/40",
             ),
-            title="Arber leaderboard", badge=Badge("30D"),
+            title="Arber leaderboard", badge=Badge("30D"), cls=FILL,
         )
         # -- trade tape -----------------------------------------------------
         yield Panel(
             Table(
                 [("Time", "w-9 text-muted"), ("Side", "w-5"), ("SOL", "w-7 text-right"),
                  ("Price", "w-fr text-right")],
-                [], row_cls="hover:bg-boost", max_rows=7, id="tape",
+                [], "lg:h-fr scrollbar-none", row_cls="hover:bg-boost", max_rows=40, id="tape",
             ),
-            title="Trade tape", subtitle="time & sales",
+            title="Trade tape", subtitle="time & sales", cls=FILL,
         )
         # -- slot river: column chart ------------------------------------------
         yield Panel(
             Sparkline([abs(math.sin(i / 3)) * 10 + random.random() * 5 for i in range(200)],
-                      "h-7 text-blue", lo=0, hi=15, id="river"),
+                      "h-7 lg:h-fr text-blue", lo=0, hi=15, id="river"),
             Row(Badge("Mainnet", cls="bg-success/20 text-success mr-1"),
                 Text("SLOT 371,911,229 · 400 MS · BUILDING 26%", "text-muted truncate")),
-            title="Slot river",
+            title="Slot river", cls=FILL,
         )
     yield Panel(
-        LogView(cls="h-12", id="log"),
+        LogView(cls="h-12 lg:h-fr", id="log"),
         title="Agent log", subtitle="tail -f · six agents",
         badge=Badge("1 / s", cls="bg-teal/20 text-teal"),
-        cls="mt-1",
+        cls="mt-1 lg:h-[25%] lg:min-h-7",
     )
 
 
