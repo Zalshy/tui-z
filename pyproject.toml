@@ -1,13 +1,13 @@
 [project]
 name = "tui-z"
 version = "0.1.0"
-description = "Tailwind-style utility classes and components for Python terminal UIs (built on Textual)"
+description = "Small class strings. Big terminal UIs. Styling and components for Textual apps."
 readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "Zalshy", email = "zalshy@pm.me" }]
-keywords = ["tui", "terminal", "textual", "tailwind", "utility-css", "dashboard", "cli", "ui"]
+keywords = ["tui", "terminal", "textual", "utility-css", "dashboard", "cli", "ui"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Console",

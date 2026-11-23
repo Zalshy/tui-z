@@ -4,7 +4,7 @@ Each *unique class string* compiles to one generated CSS class (``tw-<hash>``).
 Compiling the whole string at once (instead of one CSS class per utility) lets
 us merge utilities that map onto a single Textual property (``border-heavy`` +
 ``border-success`` -> ``border: heavy $success``) and resolve conflicts
-Tailwind-merge style: for the same property, the **last** utility wins.
+For the same property, the **last** utility wins.
 That is what makes component defaults overridable:
 ``merge(component_defaults, user_cls)``.
 
@@ -141,7 +141,7 @@ _RE_TOKEN = re.compile(r"[a-z][a-z0-9-]*")
 # --------------------------------------------------------------------------- #
 
 def _arbitrary(value: str) -> str | None:
-    """`[30%]` -> `30%`; `[1fr_2fr]` -> `1fr 2fr` (underscore = space, as in Tailwind)."""
+    """`[30%]` -> `30%`; `[1fr_2fr]` -> `1fr 2fr` (underscore = space)."""
     if value.startswith("[") and value.endswith("]"):
         return value[1:-1].replace("_", " ")
     return None

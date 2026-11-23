@@ -8,7 +8,7 @@ The first public alpha.
 
 ### Added
 
-- A class-string engine: Tailwind-style utilities compiled to Textual CSS. One generated class per unique string, the last utility wins, and errors are loud (`TailError`).
+- A class-string engine: utility class strings compiled to Textual CSS. One generated class per unique string, the last utility wins, and errors are loud (`TailError`).
 - Variants (`hover:`, `focus:`, `focus-within:`, `disabled:`, `first:`, `last:`, `odd:`, `even:`, `dark:`, `light:`, `group-hover:`) and breakpoints (`sm:`, `md:`, `lg:`, `xl:`).
 - `TwApp`, with incremental stylesheet updates and theme cycling.
 - Components: `Box`, `Row`, `Col`, `Grid`, `Scroll`, `Spacer`, `Divider`, `Sidebar`, `Text`, `Label`, `Badge`, `Stat`, `Panel`, `Ticker`, `Button`, `ThemeSwitcher`.
