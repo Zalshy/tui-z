@@ -44,21 +44,25 @@ class BarChart(Tw, Widget):
         self._tw_init(cls)
 
     @classmethod
-    def histogram(cls, values: Sequence[float], bins: int = 10, *, lo: float | None = None,
+    def histogram(chart, samples: Sequence[float], bins: int = 10, *, lo: float | None = None,
                   hi: float | None = None, **kwargs) -> BarChart:
-        """Count `values` into `bins` equal-width bins, labelled by their start."""
+        """Count `samples` into `bins` equal-width bins, labelled by their start.
+
+        Other keyword arguments (`cls=`, `values=` ...) go to the BarChart.
+        """
         if bins < 1:
             raise ValueError("bins must be at least 1")
-        if not values:
-            return cls([], **kwargs)
-        start = min(values) if lo is None else lo
-        end = max(values) if hi is None else hi
+        # (the first argument isn't called `cls`: that name is the class string, in kwargs)
+        if not samples:
+            return chart([], **kwargs)
+        start = min(samples) if lo is None else lo
+        end = max(samples) if hi is None else hi
         width = (end - start) / bins or 1.0
         counts = [0] * bins
-        for v in values:
+        for v in samples:
             if start <= v <= end:
                 counts[min(bins - 1, int((v - start) / width))] += 1
-        return cls([(fmt(start + i * width), float(c)) for i, c in enumerate(counts)], **kwargs)
+        return chart([(fmt(start + i * width), float(c)) for i, c in enumerate(counts)], **kwargs)
 
     @property
     def data(self) -> list[tuple[str, float, str]]:

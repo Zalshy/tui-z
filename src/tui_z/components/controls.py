@@ -32,7 +32,8 @@ class Button(Tw, Static, can_focus=True):
 
     DEFAULT_CLS = (
         "w-auto h-auto px-2 border border-line text-foreground bold uppercase content-center cursor-pointer "
-        "hover:bg-boost hover:border-muted focus:border-primary focus:text-primary"
+        "hover:bg-boost hover:border-muted focus:border-primary focus:text-primary "
+        "bg-transparent min-w-0"  # reset what Textual's `Button { }` CSS would add (+ line_pad below)
     )
 
     class Pressed(Message):
@@ -49,6 +50,9 @@ class Button(Tw, Static, can_focus=True):
     def __init__(self, label: str, cls: str = "", *, id: str | None = None, name: str | None = None) -> None:
         self._label = label
         super().__init__("", id=id, name=name)
+        # Textual CSS can't set `line-pad: 0` (it only takes 1+), so reset what
+        # Textual's `Button { }` CSS adds with an inline style instead.
+        self.styles.line_pad = 0
         self._tw_init(cls)
 
     def _tw_changed(self) -> None:
@@ -115,7 +119,8 @@ class ThemeSwitcher(Box):
 class _Toggle(Tw, Widget, can_focus=True):
     """Base for Checkbox / Switch: a focusable on/off control with a label."""
 
-    DEFAULT_CLS = "w-auto h-1 cursor-pointer focus:bg-boost disabled:text-opacity-50"
+    # border/padding/background reset what Textual's `Switch { }` CSS would add
+    DEFAULT_CLS = "w-auto h-1 border-none p-0 bg-transparent cursor-pointer focus:bg-boost disabled:text-opacity-50"
     ON_CLS: ClassVar[str] = "text-primary bold"
     OFF_CLS: ClassVar[str] = "text-muted"
     ON: ClassVar[str] = ""

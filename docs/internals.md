@@ -81,9 +81,9 @@ Measured on a laptop with Python 3.14 and Textual 8.2:
 | `Stat.update` (changed value and color) | ~0.18 ms |
 | `LineChart` render (100×12, 3 series) | ~1 ms |
 | Theme switch (full showcase) | ~95 ms |
-| Showcase startup | ~0.8 s |
+| Showcase startup (seven tabs) | ~0.9 s |
 
-Steady-state CPU for the showcase dashboard, with every panel updating four times a second, is about 9% of one core. Almost all of it is Textual's compositor, and tui-z's own code is under 1%.
+Steady-state CPU for the showcase dashboard, with every panel updating four times a second, is about 10% of one core. Almost all of it is Textual's compositor, and tui-z's own code is under 1%.
 
 Run the benchmarks yourself:
 

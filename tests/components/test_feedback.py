@@ -124,6 +124,21 @@ async def test_stack_keeps_at_most_max_toasts():
         assert ("m0", "replaced") in app.dismissed
 
 
+@pytest.mark.parametrize("position", ["bottom-right", "top-right"])
+async def test_stack_fills_up_to_the_default_max(position):
+    class App(Toasts):
+        TW_TOASTS = position
+
+    app = App()
+    async with app.run_test(size=(100, 40)) as pilot:
+        for i in range(6):
+            app.toast(f"m{i}", timeout=None)
+        await pilot.pause()
+        messages = [t.message for t in stack(app).toasts]
+        assert sorted(messages) == ["m2", "m3", "m4", "m5"]  # TW_TOAST_MAX = 4: the two oldest went
+        assert [m for m, reason in app.dismissed if reason == "replaced"] == ["m0", "m1"]
+
+
 async def test_top_positions_put_the_newest_first():
     class Top(Toasts):
         TW_TOASTS = "top-left"
@@ -264,6 +279,21 @@ async def test_progress_indeterminate_sweeps(mount):
         assert p.render().spans != before.spans
 
 
+async def test_progress_sweeps_only_while_indeterminate_and_visible(mount):
+    p = Progress(10, 100, "w-20")
+    async with mount(p) as (app, pilot):
+        await pilot.pause(0.25)
+        assert p._sweep == 0  # determinate: the sweep timer is paused
+        p.update(total=None)
+        await pilot.pause(0.25)
+        assert p._sweep > 0
+        p.display = False
+        await pilot.pause()
+        hidden_at = p._sweep
+        await pilot.pause(0.25)
+        assert p._sweep == hidden_at  # not on screen: no redraws
+
+
 # -- Spinner --------------------------------------------------------------------
 
 async def test_spinner_spins_and_stops(mount):
@@ -280,6 +310,11 @@ async def test_spinner_spins_and_stops(mount):
         assert s.frame == frame
         s.start("Again")
         assert plain(s).endswith(" Again")
+        s.display = False
+        await pilot.pause()
+        frame = s.frame
+        await pilot.pause(0.25)
+        assert s.frame == frame  # not on screen: no redraws
         assert plain(Spinner()) in Spinner.FRAMES
 
 

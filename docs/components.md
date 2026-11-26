@@ -233,7 +233,7 @@ def on_button_pressed(self, event: Button.Pressed) -> None:
 
 The defaults include `hover:` and `focus:` styles. Override them in `cls`.
 
-> `tui_z.Button` is separate from `textual.widgets.Button`. When you use both, import one under an alias. The same goes for `Input` and `Select` below.
+> `tui_z.Button` is separate from `textual.widgets.Button`. When you use both, import one under an alias (`from textual import widgets as tx`). The same goes for `Switch`, `Checkbox`, `Input`, `Select`, `Tabs` and `Toast`. Textual applies CSS by class name, so `Button { … }` rules in your app's CSS match both; tui-z's own look doesn't depend on Textual's defaults.
 
 ### `Checkbox`, `Switch`
 

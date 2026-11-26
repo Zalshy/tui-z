@@ -20,6 +20,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 - The package is split into layers: `tui_z.styling` (the class compiler, inline styles and themes), `tui_z.core` (the `Tw` mixin, registry and stylesheet sync), `tui_z.components` and `tui_z.app`. Everything exported from `tui_z` is unchanged. Code that imported internal modules directly needs new paths: `tui_z.engine` → `tui_z.styling.engine` (utility tables in `tui_z.styling.utilities`), `tui_z.inline` → `tui_z.styling.inline`, `tui_z.theme` → `tui_z.styling.themes`, `tui_z.registry` → `tui_z.core.registry`.
 - All use of Textual's private API now lives in `tui_z._textual`.
+- The showcase uses every component: a `TabView` with new Controls and Notifications tabs, an inbox sidebar with a `NotificationCenter`, `KeyHints` as the footer, and live toasts from the dashboard. Hidden tabs no longer update. A test checks that every exported component appears in it.
 - Tests mirror the source layout. Every component passes shared contract checks, there are snapshot tests per component family in three themes, property-based tests for the class compiler, and CI requires 95% coverage.
 
 ### Fixed
@@ -27,6 +28,7 @@ All notable changes to this project are documented here. The format follows [Kee
 - `Sidebar.cls` returned the full internal string (border and width included) instead of your class string, and a `set_cls()` on a sidebar was lost at the next toggle.
 - `add_cls()` on a `Sidebar` merged onto the internal string.
 - Clicking a `Button` no longer also counts as a click on the widget that contains it.
+- `Button` and the new `Switch` / `Toast` keep their look when the app also uses Textual's widgets of the same name (Textual's `Button { }` CSS matches by class name).
 
 ## [0.1.0] - unreleased
 

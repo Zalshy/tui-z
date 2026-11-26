@@ -88,7 +88,8 @@ class Toast(Tw, Widget):
     "clicked", "action", "replaced" or "dismissed".
     """
 
-    DEFAULT_CLS = "w-48 max-w-full h-auto mt-1 pl-1 bg-surface border-l border-heavy visible cursor-pointer"
+    # p-0 resets the padding Textual's `Toast { }` CSS would add
+    DEFAULT_CLS = "w-48 max-w-full h-auto mt-1 p-0 pl-1 bg-surface border-l border-heavy visible cursor-pointer"
     TITLE_CLS: ClassVar[str] = "bold w-fr truncate"
     MESSAGE_CLS: ClassVar[str] = "text-foreground w-full"
     TICK: ClassVar[float] = 0.1
@@ -212,9 +213,16 @@ class ToastStack(Tw, Widget):
     def _tw_defaults(self) -> str:
         return merge(self.base_cls(), TOAST_POSITIONS[self.position])
 
+    LAYER: ClassVar[str] = "tw-toasts"
+
     def on_mount(self) -> None:
-        if "_toastrack" in self.screen.layers:
-            self.styles.layer = "_toastrack"  # above everything but tooltips
+        # Docked widgets only push aside widgets on their own layer, so the stack
+        # gets a layer of its own (above the screen's content) and floats.
+        screen = self.screen
+        if self.LAYER not in screen.layers:
+            own = screen.styles.layers if screen.styles.has_rule("layers") else ("default",)
+            screen.styles.layers = (*own, self.LAYER)
+        self.styles.layer = self.LAYER
 
     @property
     def toasts(self) -> list[Toast]:
@@ -231,7 +239,8 @@ class ToastStack(Tw, Widget):
             return same
         top = self.position.startswith("top")
         live = self.toasts
-        for old in (live[self.max_toasts - 1:] if top else live[: len(live) - self.max_toasts + 1]):
+        excess = max(0, len(live) - self.max_toasts + 1)  # make room for the new one
+        for old in (live[len(live) - excess:] if top else live[:excess]):  # the oldest go
             old.dismiss("replaced")
         if top and live:  # newest nearest the edge
             self.mount(toast, before=0)
@@ -272,7 +281,7 @@ class NotificationCenter(Tw, Widget):
     def __init__(self, title: str = "Notifications", cls: str = "", *, max_items: int = 200,
                  id: str | None = None) -> None:
         self.badge = Badge("", cls=merge(self.UNREAD_CLS, "hidden"))
-        self.history = LogView("h-fr", max_lines=max_items)
+        self.history = LogView("h-fr", max_lines=max_items, tag_width=9)  # fits "warning" with room
         header = Row(Text(title, "text-muted bold uppercase tracking-wide w-fr truncate", markup=False),
                      self.badge, cls=self.HEADER_CLS)
         super().__init__(header, self.history, id=id)
@@ -396,10 +405,20 @@ class Progress(Tw, Widget):
 
     def on_mount(self) -> None:
         check_inline(self, self.label_style)
-        self.set_interval(self.SWEEP, self._step)
+        # the sweep only runs while indeterminate
+        self._sweep_timer = self.set_interval(self.SWEEP, self._step, pause=self.total is not None)
+
+    def watch_total(self, total: float | None) -> None:
+        timer = getattr(self, "_sweep_timer", None)
+        if timer is None:
+            return
+        if total is None:
+            timer.resume()
+        else:
+            timer.pause()
 
     def _step(self) -> None:
-        if self.total is None:
+        if self.is_on_screen:  # no redraws on a hidden tab
             self._sweep += 1
             self.refresh()
 
@@ -470,7 +489,7 @@ class Spinner(Tw, Widget):
         self._timer = self.set_interval(self.SPEED, self._advance)
 
     def _advance(self) -> None:
-        if self.spinning:
+        if self.spinning and self.is_on_screen:  # no redraws on a hidden tab
             self.frame = (self.frame + 1) % len(self.FRAMES)
             self.refresh()
 

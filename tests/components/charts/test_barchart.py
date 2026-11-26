@@ -37,6 +37,8 @@ def test_histogram_counts_into_bins():
     assert [v for _, v, _ in chart.data] == [3.0, 1.0, 0.0, 0.0, 2.0]
     assert [label for label, _, _ in chart.data][:2] == ["0", "2"]
     assert BarChart.histogram([]).data == []
+    styled = BarChart.histogram([1, 2], bins=2, cls="h-6 text-info", values=True)
+    assert styled.cls == "h-6 text-info" and styled.show_values
     with pytest.raises(ValueError, match="bins"):
         BarChart.histogram([1], bins=0)
 

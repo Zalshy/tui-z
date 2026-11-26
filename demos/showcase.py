@@ -2,7 +2,8 @@
 
     uv run python demos/showcase.py
 
-Keys: b toggle sidebar · [ / ] previous/next theme · 1-5 switch tab · q quit
+Keys: 1-7 switch tab · [ / ] previous/next theme · b themes sidebar ·
+i inbox · t send a toast · d open a dialog · q quit
 Click a theme in the sidebar to switch.
 """
 
@@ -12,44 +13,49 @@ import math
 import random
 from datetime import datetime
 
+from textual import widgets as tx
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.theme import Theme
-from textual.widgets import (
-    Checkbox,
-    DataTable,
-    Digits,
-    Footer,
-    Input,
-    ProgressBar,
-    RadioButton,
-    RadioSet,
-    Select,
-    Switch,
-    TabbedContent,
-    TabPane,
-)
 
 from tui_z import (
     PALETTE,
+    Alert,
     Badge,
     Bar,
+    BarChart,
     Box,
     Button,
+    Checkbox,
     Col,
+    Dialog,
     Divider,
     Grid,
+    Heatmap,
+    Input,
+    Kbd,
+    KeyHints,
+    KeyValue,
     Label,
     LineChart,
     LogView,
+    NotificationCenter,
     Panel,
+    Progress,
+    RadioGroup,
     Row,
     Scroll,
+    Select,
     Sidebar,
     Spacer,
     Sparkline,
+    Spinner,
     Stat,
+    Switch,
     Table,
+    TabPane,
+    Tabs,
+    TabView,
     Text,
     ThemeSwitcher,
     Ticker,
@@ -157,7 +163,7 @@ def dashboard() -> ComposeResult:
         yield Panel(
             Row(
                 Col(Label("Labels · measured today"),
-                    tw(Digits("1,292", id="labels"), "w-auto text-success"),
+                    tw(tx.Digits("1,292", id="labels"), "w-auto text-success"),
                     Row(Text("▲ TP 23%", "text-success mr-2"), Text("SL 51%", "text-error mr-2"),
                         Text("TIME 26%", "text-warning")),
                     cls="w-30 mr-2"),
@@ -263,7 +269,7 @@ def components() -> ComposeResult:
         Stat("Open", "4", cls="w-8", value_cls="text-warning"),
         Stat("Win%", "64.4%", cls="w-10", value_cls="text-info"),
         Stat("Blocked", "7,131", cls="w-10", value_cls="text-error"),
-        tw(Digits("21:06"), "w-auto text-purple"),
+        tw(tx.Digits("21:06"), "w-auto text-purple"),
     )
 
     yield Text("Bars", SECTION)
@@ -308,6 +314,134 @@ def components() -> ComposeResult:
          ["Orbital launch by Q4?", "79¢", "21¢", ("▲2.2%", UP)]],
         row_cls="odd:bg-panel/50 hover:bg-primary/10",
     )
+
+
+
+    yield Text("Keys & details — Kbd, KeyValue", SECTION)
+    yield Row(
+        Col(Row(Kbd("ctrl+s", "mr-1"), Text("save", "text-muted mr-3"), Kbd("[", "mr-1"), Kbd("]", "mr-1"),
+                Text("theme", "text-muted")),
+            Row(Kbd("t", "mr-1"), Text("toast", "text-muted mr-3"), Kbd("d", "mr-1"), Text("dialog", "text-muted"),
+                cls="mt-1"),
+            cls="w-auto mr-4"),
+        KeyValue([("Status", "● Live", "text-success"), ("Latency", "12 ms"), ("Region", "eu-west"),
+                  ("Fee", "0.25%", "text-warning")], "w-40", key_cls="uppercase"),
+    )
+
+    yield Text("Bar charts — values, colors per bar, histogram", SECTION)
+    yield Row(
+        BarChart([("Mon", 12), ("Tue", 18), ("Wed", 7, "error"), ("Thu", 22), ("Fri", 15), ("Sat", 4, "muted"),
+                  ("Sun", 9)], "w-fr h-8 text-info mr-2", values=True),
+        BarChart.histogram([random.gauss(0, 1) for _ in range(500)], bins=16, cls="w-fr h-8 text-purple"),
+    )
+
+    yield Text("Heatmap — activity by hour, shaded in a theme color", SECTION)
+    yield Heatmap([[max(0.0, math.sin((h - 6) / 24 * math.pi * 2) * 5 + random.random() * 4 - d % 3)
+                    for h in range(24)] for d in range(7)],
+                  color="success", row_labels=["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+                  col_labels=["0h", "", "", "", "", "", "6h", "", "", "", "", "", "12h", "", "", "", "", "",
+                              "18h", "", "", "", "", ""])
+
+    yield Text("Tabs on their own — left/right when focused", SECTION)
+    yield Tabs(["Day", "Week", "Month", "Year"], active=1, cls="w-50")
+
+
+# --------------------------------------------------------------------------- #
+# Controls: an order ticket whose state is mirrored live
+# --------------------------------------------------------------------------- #
+
+MARKETS = [("Rates cut in Q1?", "rates"), ("BTC above $120k?", "btc"), ("Ceasefire holds 30d?", "ceasefire")]
+SIZING = ["Kelly", "Fixed", "Off"]
+
+
+def controls() -> ComposeResult:
+    yield Grid(
+        Panel(
+            Label("Market"), Select(MARKETS, value="rates", prompt="Market", id="ticket-market", cls="mb-1"),
+            Label("Amount (SOL)"), Input("0.5", placeholder="0.5", restrict=r"[0-9.]*", id="ticket-amount",
+                                         cls="mb-1"),
+            Row(Col(Label("Sizing"), RadioGroup(SIZING, 0, id="ticket-sizing"), cls="w-20"),
+                Col(Label("Options"),
+                    Checkbox("Copy top wallets", True, id="ticket-copy"),
+                    Checkbox("Paper trade", id="ticket-paper"),
+                    Switch("Live data", True, id="live"),
+                    cls="w-fr"),
+                cls="h-auto mb-1"),
+            Row(Spacer(), Button("Clear", "mr-1", name="ticket-clear"),
+                Button("Buy yes", "text-success border-success", name="ticket-submit"), cls="h-auto"),
+            title="Order ticket", subtitle="Input · Select · RadioGroup · Checkbox · Switch",
+        ),
+        Panel(
+            KeyValue([("Market", "rates"), ("Amount", "0.5 SOL"), ("Sizing", "Kelly"),
+                      ("Copy wallets", "yes", "text-success"), ("Paper", "no", "text-muted"),
+                      ("Live data", "on", "text-success")], id="ticket-state", key_cls="uppercase"),
+            Divider("mt-1"),
+            Text("Every control posts a Changed message; the app updates this KeyValue from them. "
+                 "Live data pauses the dashboard.", "w-full text-muted mt-1"),
+            title="State", subtitle="KeyValue", badge=Badge("live", cls="bg-success/20 text-success"),
+        ),
+        cls="grid-cols-1 md:grid-cols-2 gap-1",
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Notifications & feedback
+# --------------------------------------------------------------------------- #
+
+VARIANTS = ["success", "info", "warning", "error", "neutral"]
+TIMEOUTS = [("2 seconds", 2.0), ("4 seconds", 4.0), ("8 seconds", 8.0), ("Until dismissed", 0.0)]
+
+
+def notifications() -> ComposeResult:
+    yield Grid(
+        Panel(
+            Label("Message"), Input("Order filled · 0.61 SOL", id="toast-message", cls="mb-1"),
+            Row(Col(Label("Variant"), RadioGroup(VARIANTS, 0, id="toast-variant"), cls="w-16"),
+                Col(Label("Timeout"), Select(TIMEOUTS, value=4.0, allow_blank=False, id="toast-timeout", cls="mb-1"),
+                    Checkbox("Add a Retry action", id="toast-action"), cls="w-fr"),
+                cls="h-auto mb-1"),
+            Row(Button("Send", "text-primary border-primary mr-1", name="toast-send"),
+                Button("Burst ×5", "mr-1", name="toast-burst"),
+                Button("Repeat", name="toast-repeat"), cls="h-auto"),
+            Text("Hover a toast to pause it, click it to dismiss. Repeats merge into ×N.", "w-full text-muted mt-1"),
+            title="Toasts", subtitle="app.toast()", badge=Badge("press t", cls="bg-info/20 text-info"),
+        ),
+        Panel(
+            Row(Progress(0, 100, "w-fr text-success", label="Backfill", id="job-backfill"),
+                Spinner("", "w-3 ml-1", id="spin-backfill"), cls="h-1 mb-1"),
+            Row(Progress(0, 100, "w-fr text-info", label="Index   ", id="job-index"),
+                Spinner("", "w-3 ml-1 text-info", id="spin-index"), cls="h-1 mb-1"),
+            Progress(total=None, cls="text-purple mb-1", label="Waiting ", show_percentage=False),
+            Spinner("Watching 47 markets", "text-warning mb-1"),
+            Text("Finished jobs send a toast and restart.", "w-full text-muted"),
+            title="Background jobs", subtitle="Progress · Spinner",
+        ),
+        Panel(
+            Col(id="alerts", cls="h-auto"),
+            Row(Spacer(), Button("Restore", name="alerts-restore"), cls="h-auto mt-1"),
+            title="Alerts", subtitle="dismiss with ✕",
+        ),
+        Panel(
+            Text("A Dialog is a modal screen. It returns the pressed button's result to a callback.", "w-full mb-1"),
+            Row(Button("Confirm", "mr-1", name="dialog-confirm"),
+                Button("Delete…", "text-error border-error", name="dialog-delete"), cls="h-auto"),
+            Text("The inbox (press i) keeps every toast: a NotificationCenter in a right Sidebar.",
+                 "w-full text-muted mt-1"),
+            title="Dialogs & inbox", subtitle="Dialog · NotificationCenter",
+        ),
+        cls="grid-cols-1 md:grid-cols-2 gap-1",
+    )
+
+
+def alerts() -> list[Alert]:
+    return [
+        Alert("Prices from Polygon are delayed by 15 minutes.", title="Market closed", variant="warning",
+              dismissible=True, cls="mb-1"),
+        Alert("3 orders filled while you were away.", title="Filled", variant="success", dismissible=True,
+              cls="mb-1"),
+        Alert("Copy trading follows the top 20 wallets.", variant="info", dismissible=True, cls="mb-1"),
+        Alert("RPC node unreachable, using the fallback.", title="Degraded", variant="error", dismissible=True),
+    ]
 
 
 # --------------------------------------------------------------------------- #
@@ -391,18 +525,20 @@ def palette() -> ComposeResult:
                cls="grid-cols-1 md:grid-cols-3 gap-1")
 
 
+
 def native() -> ComposeResult:
-    yield Text("Textual widgets follow the theme too; style them with tw(widget, cls)", "text-muted mb-1")
+    yield Text("Any Textual widget can take class strings with tw(widget, cls), and follows the theme.",
+               "text-muted mb-1")
     yield Grid(
-        Panel(tw(Input(placeholder="Search markets…"), "mb-1"),
-              tw(Select([(t, t) for t in ("Macro", "Crypto", "Tech")], prompt="Category"), "mb-1"),
+        Panel(tw(tx.Input(placeholder="Textual's Input…"), "mb-1"),
+              tw(tx.Select([(t, t) for t in ("Macro", "Crypto", "Tech")], prompt="Textual's Select"), "mb-1"),
               title="Inputs"),
-        Panel(Row(tw(Switch(value=True), "mr-1"), Text("Live mode", "content-middle h-3")),
-              tw(Checkbox("Copy trades", True), "mb-1"),
-              RadioSet(RadioButton("Kelly", value=True), RadioButton("Fixed"), RadioButton("Off")),
+        Panel(Row(tw(tx.Switch(value=True), "mr-1"), Text("Textual's Switch", "content-middle h-3")),
+              tw(tx.Checkbox("Textual's Checkbox", True), "mb-1"),
+              tx.RadioSet(tx.RadioButton("Kelly", value=True), tx.RadioButton("Fixed"), tx.RadioButton("Off")),
               title="Toggles"),
-        Panel(tw(ProgressBar(total=100, show_eta=False, id="progress"), "mb-1"),
-              tw(DataTable(id="dt"), "h-8"),
+        Panel(tw(tx.ProgressBar(total=100, show_eta=False, id="progress"), "mb-1"),
+              tw(tx.DataTable(id="dt"), "h-8"),
               title="Progress & DataTable"),
         cls="grid-cols-1 md:grid-cols-3 gap-1",
     )
@@ -412,16 +548,35 @@ def native() -> ComposeResult:
 # App
 # --------------------------------------------------------------------------- #
 
+TABS = (
+    ("dashboard", "Dashboard", dashboard), ("components", "Components", components),
+    ("controls", "Controls", controls), ("notifications", "Notifications", notifications),
+    ("utilities", "Utilities", utilities), ("palette", "Palette", palette), ("native", "Native", native),
+)
+TOAST_IDEAS = [
+    ("Order filled · 0.61 SOL", "Fill", "success"), ("Feed lag 2.1 s", "Feed", "warning"),
+    ("$NOVAKIT vetoed: creator has 49 launches", "Veto", "error"), ("Model retrained · AUC 0.71", "Research", "info"),
+    ("Wallet 0x87cc…aa20 is copying you", "", "neutral"),
+]
+
+
 class Showcase(TwApp):
     TITLE = "tui-z showcase"
+    TW_TOAST_MAX = 4
     BINDINGS = [
         Binding("q", "quit", "Quit"),
         Binding("[", "prev_theme", "Prev theme"),
         Binding("]", "next_theme", "Next theme"),
-        Binding("b", "toggle_sidebar", "Sidebar"),
-        *[Binding(str(i + 1), f"tab('{t}')", t.title(), show=False)
-          for i, t in enumerate(("dashboard", "components", "utilities", "palette", "native"))],
+        Binding("b", "toggle_sidebar", "Themes"),
+        Binding("i", "toggle_inbox", "Inbox"),
+        Binding("t", "random_toast", "Toast"),
+        Binding("d", "dialog", "Dialog"),
+        *[Binding(str(i + 1), f"tab('{tab_id}')", title, show=False) for i, (tab_id, title, _) in enumerate(TABS)],
     ]
+
+    live = True  # "Live data" switch in the Controls tab
+    on_dashboard = True  # live updates only run while their tab is visible
+    on_notifications = False
 
     def compose(self) -> ComposeResult:
         # -- header ------------------------------------------------------------
@@ -434,6 +589,7 @@ class Showcase(TwApp):
             Stat("Blocked", "7,131", cls="w-11 hidden md:block", value_cls="text-error"),
             Stat("Signals", "44", cls="w-10 hidden md:block", value_cls="text-success"),
             Stat("Theme", self.theme, cls="w-22", value_cls="text-primary", id="theme-stat"),
+            Stat("Inbox", "0", cls="w-8", value_cls="text-muted", id="inbox-stat"),
             Text("", "w-10 text-right bold text-foreground h-2 content-middle", id="clock"),
             cls="h-3 px-1 items-center bg-surface border-b border-line",
         )
@@ -443,26 +599,24 @@ class Showcase(TwApp):
             "0.59 SOL", "[b $error]VETO[/] $PEBBLE · creator 49 launches", "[b $success]TP[/] $LUMEN +68%",
         ], "bg-panel/60")
 
-        # -- body: sidebar + tabs --------------------------------------------------
+        # -- body: themes sidebar + tabs + inbox sidebar -----------------------------
         with Row(cls="h-fr"):
             with Sidebar(title="Themes", width="w-26", id="sidebar"):
                 yield ThemeSwitcher()
                 yield Divider("mt-1")
-                yield Text("b      sidebar\n[ / ]  cycle theme\n1-5    switch tab\ntab    focus\nq      quit",
-                           "text-muted px-1 mt-1", markup=False)
+                yield KeyValue([("1-7", "tabs"), ("[ ]", "theme"), ("b / i", "sidebars"), ("t", "toast"),
+                                ("d", "dialog"), ("q", "quit")], "px-1 mt-1", key_cls="text-primary bold")
                 yield Spacer("h-fr")
                 yield Text("Palette", "text-muted bold uppercase tracking-wide px-1")
                 yield Row(*[Text("  ", f"bg-{c}") for c in PALETTE], cls="px-1 mb-1")
-            with tw(TabbedContent(id="tabs"), "w-fr h-full"):
-                for tab_id, title, builder in (
-                    ("dashboard", "Dashboard", dashboard), ("components", "Components", components),
-                    ("utilities", "Utilities", utilities), ("palette", "Palette", palette),
-                    ("native", "Native", native),
-                ):
-                    with TabPane(title, id=tab_id):
+            with TabView(id="tabs", cls="w-fr h-full"):
+                for tab_id, title, builder in TABS:
+                    with TabPane(title, id=tab_id, cls="h-full"):
                         with Scroll(cls="px-1"):
                             yield from builder()
-        yield Footer()
+            with Sidebar(title="Inbox", width="w-44", side="right", collapsed=True, id="inbox"):
+                yield NotificationCenter("Toasts so far", "h-fr px-1", id="center")
+        yield KeyHints()
 
     # -- live data -------------------------------------------------------------
     def on_mount(self) -> None:
@@ -470,20 +624,27 @@ class Showcase(TwApp):
         # while the app is tearing the DOM down on quit.
         self.w_clock = self.query_one("#clock", Text)
         self.w_theme = self.query_one("#theme-stat", Stat)
+        self.w_inbox = self.query_one("#inbox-stat", Stat)
         self.w_core = self.query_one("#core-chart", LineChart)
         self.w_river = self.query_one("#river", Sparkline)
         self.w_spark = self.query_one("#labels-spark", Sparkline)
         self.w_exit = self.query_one("#exit-chart", LineChart)
-        self.w_progress = self.query_one("#progress", ProgressBar)
+        self.w_progress = self.query_one("#progress", tx.ProgressBar)
         self.w_log = self.query_one("#log", LogView)
         self.w_tape = self.query_one("#tape", Table)
         self.w_decisions = self.query_one("#decisions", Col)
-        self.w_labels = self.query_one("#labels", Digits)
+        self.w_labels = self.query_one("#labels", tx.Digits)
         self.w_swatches = list(self.query(Swatch))
+        self.w_state = self.query_one("#ticket-state", KeyValue)
+        self.w_jobs = [(self.query_one("#job-backfill", Progress), self.query_one("#spin-backfill", Spinner), 3.0),
+                       (self.query_one("#job-index", Progress), self.query_one("#spin-index", Spinner), 1.2)]
+        self.last_toast: tuple[str, str, str] = TOAST_IDEAS[0]
 
         self.theme_changed_signal.subscribe(self, self._on_theme)
         self._on_theme(self.current_theme)
-        dt = self.query_one("#dt", DataTable)
+        self.watch(self.query_one("#center", NotificationCenter), "unread", self._on_unread)
+        self.query_one("#alerts", Col).mount_all(alerts())
+        dt = self.query_one("#dt", tx.DataTable)
         dt.add_columns("Wallet", "Side", "Size")
         for _ in range(8):
             dt.add_row(f"0x{random.randrange(16**4):04x}…", random.choice(["BUY", "SELL"]), f"{random.uniform(.1, 3):.2f}")
@@ -491,17 +652,31 @@ class Showcase(TwApp):
         self.set_interval(0.25, self._tick_fast)
         self.set_interval(0.9, self._tick_log)
         self.set_interval(2.5, self._tick_decision)
+        self.set_interval(0.2, self._tick_jobs)
         self._tick_clock()
+
+    @property
+    def running(self) -> bool:
+        return self.live and self.on_dashboard
 
     def _on_theme(self, theme: Theme) -> None:
         self.w_theme.update(theme.name)
         for swatch in self.w_swatches:
             swatch.hex.update(str(self.theme_variables.get(swatch.token, ""))[:9])
 
+    def _on_unread(self, unread: int) -> None:
+        self.w_inbox.update(str(unread), "text-error" if unread else "text-muted")
+
     def _tick_clock(self) -> None:
         self.w_clock.update(datetime.now().strftime("%H:%M:%S"))
 
     def _tick_fast(self) -> None:
+        if self.live:  # the native ProgressBar lives in another tab
+            self.w_progress.advance(1)
+            if self.w_progress.percentage == 1:
+                self.w_progress.progress = 0
+        if not self.running:
+            return
         last = self.w_core.data[-1]
         self.w_core.push(last + (60 - last) * 0.05 + random.gauss(0, 2.5))
         self.w_river.push(abs(math.sin(len(self.w_river.data) / 3)) * 10 + random.random() * 5)
@@ -512,17 +687,21 @@ class Showcase(TwApp):
 
         self.w_exit.push(step(self.w_exit.data[-1], 0.025),
                          *[step(values[-1], 0.035) for values, _ in self.w_exit.series])
-        self.w_progress.advance(1)
-        if self.w_progress.percentage == 1:
-            self.w_progress.progress = 0
 
     def _tick_decision(self) -> None:
-        """Newest decision on top; the oldest falls off the bottom."""
-        self.w_decisions.mount(decision(random.randrange(5), random.randrange(8), random.randrange(3, 99)), before=0)
+        """Newest decision on top; the oldest falls off the bottom. Big scores toast."""
+        if not self.running:
+            return
+        kind, token, score = random.randrange(5), random.randrange(8), random.randrange(3, 99)
+        self.w_decisions.mount(decision(kind, token, score), before=0)
         for old in self.w_decisions.children[MAX_DECISIONS:]:
             old.remove()
+        if score >= 90:
+            self.toast(f"{DECISION_TOKENS[token]} scored {score}", title="High confidence", variant="success")
 
     def _tick_log(self) -> None:
+        if not self.running:
+            return
         name = random.choice(list(TAGS))
         coin = random.choice(["$CINDER", "$HARBOR", "$WILLOW", "$EMBER", "$LUMEN"])
         sol = random.uniform(0.05, 3)
@@ -536,12 +715,128 @@ class Showcase(TwApp):
             [datetime.now().strftime("%H:%M:%S"), (side, UP if side == "BUY" else DOWN),
              f"{sol:.2f}", f"{random.uniform(0.0001, 0.01):.5f}"], top=True)
         self.w_labels.update(f"{int(self.w_labels.value.replace(',', '')) + random.randrange(3):,}")
+        if random.random() < 0.05:  # the same warning again merges into ×N
+            self.toast("RPC answered in 2.1 s", title="Feed lag", variant="warning")
 
+    def _tick_jobs(self) -> None:
+        if not self.on_notifications:
+            return
+        for progress, spinner, rate in self.w_jobs:
+            if progress.percentage == 1:
+                continue
+            progress.advance(rate * random.random())
+            if progress.percentage == 1:
+                spinner.stop()
+                self.toast(f"{progress.label.strip()} finished", title="Job done", variant="info", timeout=3)
+                self.set_timer(3, lambda p=progress, s=spinner: (p.update(value=0), s.start()))
+
+    # -- controls ----------------------------------------------------------------
+    def on_tab_view_changed(self, event: TabView.Changed) -> None:
+        self.on_dashboard = event.pane.id == "dashboard"
+        self.on_notifications = event.pane.id == "notifications"
+
+    def on_select_changed(self, event: Select.Changed) -> None:
+        if event.select.id == "ticket-market":
+            self.w_state.set("Market", str(event.value))
+
+    def on_input_changed(self, event: Input.Changed) -> None:
+        if event.input.id == "ticket-amount":
+            self.w_state.set("Amount", f"{event.value or '0'} SOL")
+
+    def on_radio_group_changed(self, event: RadioGroup.Changed) -> None:
+        if event.group.id == "ticket-sizing":
+            self.w_state.set("Sizing", event.value)
+
+    def on_checkbox_changed(self, event: Checkbox.Changed) -> None:
+        key = {"ticket-copy": "Copy wallets", "ticket-paper": "Paper"}.get(event.control.id or "")
+        if key:
+            self.w_state.set(key, "yes" if event.value else "no", "text-success" if event.value else "text-muted")
+
+    def on_switch_changed(self, event: Switch.Changed) -> None:
+        if event.control.id == "live":
+            self.live = event.value
+            self.w_state.set("Live data", "on" if event.value else "paused",
+                             "text-success" if event.value else "text-warning")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        handler = getattr(self, f"_press_{(event.button.name or '').replace('-', '_')}", None)
+        if handler is not None:
+            handler()
+
+    def _press_ticket_submit(self) -> None:
+        amount = self.w_state.get("Amount")
+        paper = self.w_state.get("Paper") == "yes"
+        self.toast(f"{self.w_state.get('Market')} · {amount} · {self.w_state.get('Sizing')}",
+                   title="Paper order placed" if paper else "Order placed", variant="info" if paper else "success")
+
+    def _press_ticket_clear(self) -> None:
+        self.query_one("#ticket-amount", Input).value = ""
+        self.toast("Ticket cleared", variant="neutral", timeout=2)
+
+    def _toast_from_form(self) -> None:
+        message = self.query_one("#toast-message", Input).value or "Hello from tui-z"
+        variant = self.query_one("#toast-variant", RadioGroup).value
+        timeout = self.query_one("#toast-timeout", Select).value
+        action = ("Retry", lambda: self.toast("Retried", variant="info", timeout=2)) \
+            if self.query_one("#toast-action", Checkbox).value else None
+        self.last_toast = (message, "", variant)
+        self.toast(message, variant=variant, timeout=float(timeout) or None, action=action)  # type: ignore[arg-type]
+
+    def _press_toast_send(self) -> None:
+        self._toast_from_form()
+
+    def _press_toast_repeat(self) -> None:
+        message, title, variant = self.last_toast
+        self.toast(message, title=title, variant=variant)
+
+    def _press_toast_burst(self) -> None:
+        for message, title, variant in TOAST_IDEAS:
+            self.toast(message, title=title, variant=variant)
+
+    def _press_alerts_restore(self) -> None:
+        box = self.query_one("#alerts", Col)
+        box.remove_children()
+        box.mount_all(alerts())
+
+    def _press_dialog_confirm(self) -> None:
+        self.action_dialog()
+
+    def _press_dialog_delete(self) -> None:
+        def done(result: str | None) -> None:
+            if result == "delete":
+                self.toast("3 orders deleted", title="Deleted", variant="error")
+            else:
+                self.toast("Nothing deleted", variant="neutral", timeout=2)
+
+        self.push_screen(Dialog("Delete the 3 open orders? This can't be undone.", title="Delete orders",
+                                buttons=[("Keep", "keep"), ("Delete", "delete", "text-error border-error")],
+                                cls="border-error"), done)
+
+    # -- actions -------------------------------------------------------------------
     def action_toggle_sidebar(self) -> None:
         self.query_one("#sidebar", Sidebar).toggle()
 
+    def action_toggle_inbox(self) -> None:
+        inbox = self.query_one("#inbox", Sidebar)
+        inbox.toggle()
+        if not inbox.collapsed:
+            self.query_one("#center", NotificationCenter).mark_read()
+
     def action_tab(self, tab: str) -> None:
-        self.query_one("#tabs", TabbedContent).active = tab
+        self.query_one("#tabs", TabView).active = tab
+
+    def action_random_toast(self) -> None:
+        self.last_toast = random.choice(TOAST_IDEAS)
+        message, title, variant = self.last_toast
+        self.toast(message, title=title, variant=variant)
+
+    def action_dialog(self) -> None:
+        def done(result: str | None) -> None:
+            self.toast(f"Dialog returned {result!r}", variant="info" if result else "neutral", timeout=3)
+
+        self.push_screen(Dialog("Rebalance the portfolio to the model weights?", title="Rebalance",
+                                buttons=[("Cancel", "cancel"), ("Rebalance", "rebalance", Dialog.PRIMARY_CLS)]),
+                         done)
 
 
 if __name__ == "__main__":
