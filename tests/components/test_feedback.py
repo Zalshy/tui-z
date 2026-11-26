@@ -36,6 +36,16 @@ def stack(app) -> ToastStack:
     return app.screen.query_one(ToastStack)
 
 
+async def slid_in(pilot, app) -> None:
+    """Wait until every toast has slid into place (the slide starts a refresh after mounting)."""
+    for _ in range(200):
+        await pilot.wait_for_animation()
+        if all(t.styles.offset.x.value == 0 for t in stack(app).toasts):
+            return
+        await pilot.pause(0.02)
+    raise AssertionError("toasts never slid in")
+
+
 # -- variants -------------------------------------------------------------------
 
 def test_unknown_variant_is_an_error():
@@ -66,7 +76,7 @@ async def test_toast_without_timeout_stays_until_clicked():
     async with app.run_test() as pilot:
         toast = app.toast("Sticky", timeout=None)
         await pilot.pause(0.5)
-        await pilot.wait_for_animation()
+        await slid_in(pilot, app)
         assert not toast.dismissed and toast.countdown is None
         await pilot.click(toast)
         await pilot.pause()
@@ -80,7 +90,7 @@ async def test_toast_close_button_and_action():
         closable = app.toast("one", timeout=None)
         acting = app.toast("two", timeout=None, action=("Retry", lambda: ran.append(1)))
         await pilot.pause()
-        await pilot.wait_for_animation()  # clicks land once they've slid in
+        await slid_in(pilot, app)  # clicks land once they've slid in
         await pilot.click(closable.query_one("_Close"))
         await pilot.click(acting.query_one(Button))
         await pilot.pause()
@@ -93,7 +103,7 @@ async def test_hover_pauses_the_countdown():
     async with app.run_test() as pilot:
         toast = app.toast("hover me", timeout=0.8)
         await pilot.pause()
-        await pilot.wait_for_animation()  # let it slide in under the pointer
+        await slid_in(pilot, app)  # let it slide in under the pointer
         await pilot.hover(toast)
         await pilot.pause(1.0)
         assert not toast.dismissed
@@ -169,8 +179,7 @@ async def test_toasts_slide_in_from_their_side(position, side):
         await pilot.pause(0.05)
         start = toast.styles.offset.x.value
         assert start * side > 0  # starts off to that side
-        await pilot.wait_for_animation()
-        assert toast.styles.offset.x.value == 0
+        await slid_in(pilot, app)
         assert toast.region.right == 99 if side > 0 else toast.region.x == 1
 
 
