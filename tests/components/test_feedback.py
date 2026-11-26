@@ -105,10 +105,10 @@ async def test_same_message_bumps_a_counter_and_restarts_the_timer():
         first = app.toast("Feed lag", variant="warning")
         await pilot.pause(0.2)
         again = app.toast("Feed lag", variant="warning")
+        assert first.remaining == first.timeout  # restarted (checked before a tick can land)
         await pilot.pause()
         assert again is first and first.count == 2
         assert plain(first.counter) == "×2" and first.counter.display
-        assert first.remaining > 0.2
         assert len(stack(app).toasts) == 1
         assert len(app.tw_notifications) == 2  # both are remembered
 
