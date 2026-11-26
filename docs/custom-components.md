@@ -95,3 +95,25 @@ class Clock(Tw, Static):
 ```
 
 For a one-off, `tw(widget, "cls")` is enough.
+
+## Defaults that depend on arguments
+
+When part of the look depends on an argument, such as a color variant, override `_tw_defaults()` instead of mixing it into `cls`. The user's `cls` still comes last, and `widget.cls` stays just what the user passed:
+
+```python
+from tui_z import Text, merge
+
+class Pill(Text):
+    DEFAULT_CLS = "px-1 bold"
+
+    def __init__(self, label: str, color: str = "primary", cls: str = "") -> None:
+        self.color = color
+        super().__init__(label, cls)
+
+    def _tw_defaults(self) -> str:
+        return merge(self.base_cls(), f"bg-{self.color}/20 text-{self.color}")
+
+Pill("live", "success", cls="text-warning")   # the user's text-warning wins
+```
+
+`widget.applied_cls` shows the full string that was compiled, which helps when a style doesn't apply as expected.

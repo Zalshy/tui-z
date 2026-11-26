@@ -15,14 +15,19 @@ uv run python demos/showcase.py   # check everything renders
 ## Before opening a pull request
 
 ```bash
-uv run pytest          # all tests must pass
+uv run pytest --cov    # all tests must pass, coverage must stay at 95% or above
 uvx ruff check .       # no lint errors
 ```
 
-- **Add a test** for any new utility, component or bug fix. The tests in `tests/` run apps headlessly with `App.run_test()`.
+- **Add a test** for any new utility, component or bug fix. `tests/` mirrors `src/tui_z/` (`styling/`, `core/`, `components/`), and the `mount` fixture in `tests/conftest.py` runs widgets in a headless app.
+- **New components** need three things in `tests/`:
+  1. an entry in `components/examples.py`, which runs the shared contract checks (`cls=` merging, `set_cls`, rendering in every theme). A test fails if an exported component is missing;
+  2. behaviour tests in the matching `components/test_<family>.py`;
+  3. a place in a gallery in `snapshots/test_snapshots.py`. After an intended visual change, run `uv run pytest tests/snapshots --snapshot-update` and check the new snapshots in `snapshot_report.html` or the diff.
+- **Respect the layers.** `styling` → `core` → `components` → `app`: a module imports only from the layers before it (see [docs/internals.md](docs/internals.md#code-layout)). Textual private API goes in `_textual.py` only.
 - **Keep the class-string design.** New styling features should be utilities (`cls="..."`), not new keyword arguments. Keyword arguments are for data and behavior.
 - **Fail loudly.** An unsupported utility should raise `TailError` with a helpful message.
-- **Mind performance.** If you change the engine, `lines.py` or `charts.py`, run `uv run python benchmarks/bench.py` before and after, and include the numbers in the pull request.
+- **Mind performance.** If you change `styling/`, `core/`, `components/data.py` or `components/charts/`, run `uv run python benchmarks/bench.py` before and after, and include the numbers in the pull request.
 - **Update the docs.** Add new utilities to `docs/utilities.md` and new components to `docs/components.md`, and note user-facing changes in `CHANGELOG.md`.
 - **Regenerate the README GIF** after a visual change: `uv run python scripts/demo_gif.py`.
 

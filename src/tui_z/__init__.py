@@ -1,59 +1,110 @@
-"""tui-z — utility-class styling and components for Textual terminal UIs."""
+"""tui-z — utility-class styling and components for Textual terminal UIs.
+
+Layers (each may import only from the ones above it):
+
+    styling/     class strings -> CSS, inline styles, themes   (pure)
+    core/        Tw mixin, class registry, stylesheet sync
+    components/  every widget
+    app.py       TwApp, which ties it all together
+"""
 
 from .app import TwApp
-from .charts import Bar, LineChart, Sparkline
-from .engine import TailError, compile_cls, merge
-from .inline import inline
-from .lines import LineView, LogView, Table
-from .sidebar import Sidebar
-from .theme import PALETTE, THEME_NAMES, THEMES, make_theme
-from .theming import ThemeSwitcher
-from .widgets import (
+from .components import (
+    Alert,
     Badge,
+    Bar,
+    BarChart,
     Box,
     Button,
+    Checkbox,
     Col,
+    Dialog,
     Divider,
     Grid,
+    Heatmap,
+    Input,
+    Kbd,
+    KeyHints,
+    KeyValue,
     Label,
+    LineChart,
+    LineView,
+    LogView,
+    Notification,
+    NotificationCenter,
     Panel,
+    Progress,
+    RadioGroup,
     Row,
     Scroll,
+    Select,
+    Sidebar,
     Spacer,
+    Sparkline,
+    Spinner,
     Stat,
+    Switch,
+    Table,
+    TabPane,
+    Tabs,
+    TabView,
     Text,
+    ThemeSwitcher,
     Ticker,
-    Tw,
-    tw,
+    Toast,
+    ToastStack,
 )
+from .core import Tw, tw
+from .styling import PALETTE, THEME_NAMES, THEMES, TailError, compile_cls, inline, make_theme, merge
 
 __all__ = [
     "PALETTE",
     "THEMES",
     "THEME_NAMES",
+    "Alert",
     "Badge",
     "Bar",
+    "BarChart",
     "Box",
     "Button",
+    "Checkbox",
     "Col",
+    "Dialog",
     "Divider",
     "Grid",
+    "Heatmap",
+    "Input",
+    "Kbd",
+    "KeyHints",
+    "KeyValue",
     "Label",
     "LineChart",
     "LineView",
     "LogView",
+    "Notification",
+    "NotificationCenter",
     "Panel",
+    "Progress",
+    "RadioGroup",
     "Row",
     "Scroll",
+    "Select",
     "Sidebar",
     "Spacer",
     "Sparkline",
+    "Spinner",
     "Stat",
+    "Switch",
+    "TabPane",
+    "TabView",
     "Table",
+    "Tabs",
     "TailError",
     "Text",
     "ThemeSwitcher",
     "Ticker",
+    "Toast",
+    "ToastStack",
     "Tw",
     "TwApp",
     "compile_cls",

@@ -27,9 +27,9 @@ from tui_z import (
     Text,
     Ticker,
     TwApp,
-    registry,
+    compile_cls,
 )
-from tui_z.engine import compile_cls
+from tui_z.core import registry
 
 RESULTS: list[tuple[str, float, int]] = []
 

@@ -56,9 +56,12 @@ uv run python demos/showcase.py
 
 ## What's inside
 
-- **Layout**: `Row`, `Col`, `Grid`, `Panel`, `Sidebar` and more
-- **Data**: `Table`, `LogView`, `Ticker`, `Stat`, `Badge`
-- **Charts**: `Bar`, `Sparkline`, `LineChart`, all streaming live
+- **Layout**: `Row`, `Col`, `Grid`, `Panel` and more
+- **Data**: `Table`, `LogView`, `Ticker`, `Stat`, `KeyValue`, `Badge`
+- **Charts**: `Bar`, `Sparkline`, `LineChart` (all streaming live), `BarChart`, `Heatmap`
+- **Controls**: `Button`, `Input`, `Select`, `Checkbox`, `Switch`, `RadioGroup`
+- **Navigation**: `TabView`, `Sidebar`, `KeyHints`
+- **Notifications**: toasts (`app.toast()`, and `notify()` too), a `NotificationCenter`, `Alert`, `Progress`, `Spinner`, `Dialog`
 - **Themes**: Catppuccin, Tokyo Night and two of our own. Switch anytime.
 - **Responsive**: `md:grid-cols-2` adapts to the terminal width
 

@@ -43,19 +43,6 @@ Takes the remaining width in a `Row` (`w-fr h-1`).
 
 A horizontal rule: `Divider()`, or `Divider("text-primary", char="═")`.
 
-### `Sidebar`
-
-A side panel that collapses to a thin rail.
-
-```python
-Sidebar(ThemeSwitcher(), title="Themes", width="w-26", rail="w-3", side="left", collapsed=False)
-```
-
-- `sidebar.toggle()` or `sidebar.collapsed = True` collapses it. Users can also click the `«` / `»` handle.
-- `width` and `rail` are class strings, so `"w-26 lg:w-32"` works.
-- It posts `Sidebar.Toggled` with a `.collapsed` attribute.
-- `side="right"` mirrors the border and arrows.
-
 ## Content
 
 ### `Text`
@@ -99,6 +86,23 @@ Panel(*children, title="Live markets", subtitle="refresh 1s",
 ```
 
 Arguments: `title_cls`, `header_cls`. Class attributes: `HEADER_CLS`, `TITLE_CLS`.
+
+### `KeyValue`
+
+Aligned key / value rows, for detail panels. Values are markup, and each row can take its own inline `cls`.
+
+```python
+info = KeyValue([("Status", "Live", "text-success"), ("Latency", "12 ms")], key_cls="uppercase")
+info.set("Latency", "18 ms", "text-warning")   # add or change a row
+info.get("Status")                             # "Live"
+info.remove_key("Status")
+```
+
+Class attributes: `KEY_CLS`, `VALUE_CLS`, `GAP`.
+
+### `Kbd`
+
+A keyboard key: `Kbd("ctrl+s")`. Its defaults are `px-1 bg-boost text-foreground bold`.
 
 ## Data
 
@@ -188,7 +192,33 @@ chart.set_series([(path_a, "purple")])
 - **`mode="fit"`**: stretches the whole series to the width, for static data.
 - **`keep`**: how many points each series retains (2000 by default).
 
-## Interaction
+### `BarChart`
+
+Vertical bars with labels under them. Heights use eighth blocks, so they're precise to 1/8 of a cell.
+
+```python
+BarChart([("Mon", 3), ("Tue", 5), ("Wed", 2, "error")], "h-8 text-primary", values=True)
+BarChart.histogram(latencies, bins=12, cls="h-6 text-info")
+chart.set_data([("Thu", 4)])
+```
+
+- Items are a value, `(label, value)` or `(label, value, color)`.
+- Bars share the width (up to 8 cells each); `bar_width=` fixes it and `gap=` sets the space between bars. Bars that don't fit are cut.
+- `values=True` prints each value above its bar, `labels=False` hides the labels, and `lo` / `hi` fix the scale (`lo` is 0 by default).
+
+### `Heatmap`
+
+A grid of values shaded from faint to full in one theme color, so it follows theme switches.
+
+```python
+Heatmap(activity, color="success", row_labels=["Mon", "Tue"], col_labels=["0h", "", "", "3h"])
+heatmap.data = new_rows
+heatmap.set_color("warning")
+```
+
+Values at or below `lo` (by default 0, or the minimum if lower) use the theme's `panel` color. `cell` sets how many columns one cell takes (2), and `steps` how many shades there are (5).
+
+## Controls
 
 ### `Button`
 
@@ -203,7 +233,51 @@ def on_button_pressed(self, event: Button.Pressed) -> None:
 
 The defaults include `hover:` and `focus:` styles. Override them in `cls`.
 
-> `tui_z.Button` is separate from `textual.widgets.Button`. When you use both, import one under an alias.
+> `tui_z.Button` is separate from `textual.widgets.Button`. When you use both, import one under an alias (`from textual import widgets as tx`). The same goes for `Switch`, `Checkbox`, `Input`, `Select`, `Tabs` and `Toast`. Textual applies CSS by class name, so `Button { … }` rules in your app's CSS match both; tui-z's own look doesn't depend on Textual's defaults.
+
+### `Checkbox`, `Switch`
+
+Focusable on/off controls with a label. Toggle them with a click, Enter or Space.
+
+```python
+Checkbox("Copy trades", True)
+Switch("Live mode", on_cls="text-success")
+
+def on_checkbox_changed(self, event: Checkbox.Changed) -> None:
+    self.copy_trades = event.value
+```
+
+They post `Checkbox.Changed` / `Switch.Changed` with `.value`. `on_cls` and `off_cls` style the mark (inline styles). Pass `disabled=True` to disable one.
+
+### `RadioGroup`
+
+One choice out of a few, one per line. The arrow keys or a click select.
+
+```python
+sizing = RadioGroup(["Kelly", "Fixed", "Off"], value=0)
+sizing.value      # "Kelly"
+sizing.index = 2
+```
+
+It posts `RadioGroup.Changed` with `.index` and `.value`.
+
+### `Input`
+
+Textual's `Input`, restyled: a rounded border that turns `primary` on focus. Its events (`Input.Changed`, `Input.Submitted`) and options (`validators=`, `restrict=`, `password=` …) are Textual's.
+
+```python
+Input(placeholder="Search markets…", cls="w-40")
+```
+
+### `Select`
+
+Textual's `Select`, restyled. It posts `Select.Changed`.
+
+```python
+Select([("Macro", "macro"), ("Crypto", "crypto")], prompt="Category", value="macro")
+```
+
+`cls` styles the outer widget, `current_cls` the closed box and `overlay_cls` the open list. `group-focus:` utilities in `current_cls` follow the select's focus. Class attributes: `CURRENT_CLS`, `OVERLAY_CLS`.
 
 ### `ThemeSwitcher`
 
@@ -215,6 +289,146 @@ ThemeSwitcher(["tokyo-night", "catppuccin-mocha"], cls="row", item_cls="w-auto")
 ```
 
 Class attributes: `ITEM_CLS`, `ACTIVE_CLS`. Arguments: `item_cls`, `active_cls`.
+
+## Navigation
+
+### `TabView`, `TabPane`, `Tabs`
+
+Tabs that switch between panes. Only the active pane is displayed.
+
+```python
+with TabView(active="logs", id="tabs"):
+    with TabPane("Dashboard", id="dashboard"):
+        yield Panel(...)
+    with TabPane("Logs", id="logs"):
+        yield LogView()
+
+self.query_one(TabView).active = "dashboard"
+```
+
+- `TabView` posts `TabView.Changed` with `.pane`. `active_pane` returns the active `TabPane`.
+- Click a tab, or focus the tabs and use the left / right arrows.
+- `tabs_cls` styles the tab row and `body_cls` the pane area.
+- `Tabs` is the row of labels on its own: `Tabs(["Day", "Week"], active=0)` posts `Tabs.Changed` with `.index`. Class attributes: `ITEM_CLS`, `ACTIVE_CLS`.
+
+### `Sidebar`
+
+A side panel that collapses to a thin rail.
+
+```python
+Sidebar(ThemeSwitcher(), title="Themes", width="w-26", rail="w-3", side="left", collapsed=False)
+```
+
+- `sidebar.toggle()` or `sidebar.collapsed = True` collapses it. Users can also click the `«` / `»` handle.
+- `width` and `rail` are class strings, so `"w-26 lg:w-32"` works.
+- It posts `Sidebar.Toggled` with a `.collapsed` attribute.
+- `side="right"` mirrors the border and arrows.
+
+### `KeyHints`
+
+A one-line list of keys and what they do, like a footer.
+
+```python
+KeyHints(cls="dock-bottom")                     # follows the screen's bindings
+KeyHints([("q", "quit"), ("[ ]", "theme")])     # or a fixed list
+```
+
+With no list, it shows every binding with `show=True` that's active for the focused widget, and updates as focus moves. Class attributes: `KEY_CLS`, `DESC_CLS`, `SEPARATOR`.
+
+## Feedback
+
+### Toasts
+
+Short-lived notifications in a corner of the screen.
+
+```python
+self.toast("Order filled", variant="success")
+self.toast("Feed lost", title="Connection", variant="error", timeout=None,
+           action=("Retry", self.reconnect))
+self.notify("Saved")      # Textual's notify() shows a tui-z toast too
+```
+
+- **Variants**: `success`, `info`, `warning`, `error` and `neutral`. Each has a theme color and an icon.
+- **Timeout**: `timeout` is in seconds. The default is `TwApp.TW_TOAST_TIMEOUT` (4), and `None` keeps the toast until it's dismissed. A countdown bar shows the time left, and hovering pauses it.
+- **Dismissing**: click a toast or its `✕`. An `action` adds a button that runs the callback, then dismisses the toast.
+- **Repeats**: the same message again shows `×2` on the toast that's already there and restarts its timer, instead of stacking a duplicate.
+- **Events**: each toast posts `Toast.Dismissed` with `.reason`: `"timeout"`, `"closed"`, `"clicked"`, `"action"`, `"replaced"` or `"dismissed"`.
+- **Threads**: `toast()` and `notify()` are safe to call from a worker thread.
+
+Settings on `TwApp`:
+
+```python
+class MyApp(TwApp):
+    TW_TOASTS = "top-right"       # where toasts appear: top-/bottom- + left/center/right
+    TW_TOAST_MAX = 3              # most on screen; the oldest is dismissed for a new one
+    TW_TOAST_TIMEOUT = 6.0
+```
+
+Set `TW_TOASTS = None` to keep Textual's own notifications for `notify()`. Toasts are `Toast` widgets inside a `ToastStack`, which `TwApp` docks to each screen. Style one with `cls=` (`self.toast("…", cls="w-60")`), or subclass `Toast` and change `DEFAULT_CLS`.
+
+### `NotificationCenter`
+
+Every toast the app has shown, in a scrolling list, with an unread count.
+
+```python
+Sidebar(NotificationCenter(cls="h-fr"), title="Inbox")
+center.unread        # toasts since the last mark_read()
+center.mark_read()   # clicking the list does this too
+center.clear()
+```
+
+It lists the toasts shown before it was mounted too: `TwApp.tw_notifications` keeps them all, and `TwApp.tw_notification_signal` publishes each new one.
+
+### `Alert`
+
+A banner that stays in the layout. It uses the same variants as toasts.
+
+```python
+Alert("Prices are delayed 15 min", title="Market closed", variant="warning", dismissible=True)
+alert.update("Back at 9:30")
+```
+
+`dismissible=True` adds a `✕` that removes the alert and posts `Alert.Dismissed`.
+
+### `Progress`
+
+A labelled progress bar with a percentage. The fill takes `text-*`.
+
+```python
+sync = Progress(total=100, label="Sync", cls="text-success")
+sync.advance(5)
+sync.update(value=40, label="Syncing wallets")
+sync.percentage        # 0.4
+Progress(total=None)   # indeterminate: a segment sweeps back and forth
+```
+
+### `Spinner`
+
+An animated spinner with a label. The spinner takes `text-*`.
+
+```python
+spinner = Spinner("Syncing", cls="text-primary")
+spinner.stop("Synced")    # freezes on ✓ and the new label
+spinner.start("Again")
+```
+
+### `Dialog`
+
+A modal dialog. It dismisses with the pressed button's result, or `None` on Escape. The last button is focused, so put the main action last.
+
+```python
+def on_answer(result: str | None) -> None:
+    if result == "delete":
+        ...
+
+self.push_screen(
+    Dialog("Delete 3 orders?", title="Confirm",
+           buttons=[("Cancel", "cancel"), ("Delete", "delete", "text-error border-error")]),
+    on_answer,
+)
+```
+
+Buttons are `(label, result)` or `(label, result, cls)`. With no buttons you get Cancel / OK. `cls` styles the panel (`PANEL_CLS`), and the screen behind it is dimmed.
 
 ## Any Textual widget
 
@@ -239,6 +453,7 @@ Subclass `TwApp` instead of `textual.app.App`. It:
 - compiles every class string into the stylesheet before the widgets that use it are styled
 - sets the screen breakpoint classes for `sm:`, `md:`, `lg:` and `xl:`
 - provides `action_next_theme` / `action_prev_theme`, which cycle through `TW_THEMES`
+- shows notifications as tui-z toasts: `toast()`, and `notify()` too (see [Toasts](#toasts))
 
 ```python
 class MyApp(TwApp):
