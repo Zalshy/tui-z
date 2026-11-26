@@ -81,6 +81,11 @@ class Tw:
         return self._tw_cls
 
     @property
+    def applied_cls(self) -> str:
+        """The full string compiled onto the widget: DEFAULT_CLS, then the rest."""
+        return merge(self.base_cls(), self._tw_cls)
+
+    @property
     def tw_class(self) -> str:
         """The generated CSS class (`tw-<hash>`) currently on the widget."""
         return self._tw_compiled.name if self._tw_compiled else ""
@@ -95,7 +100,7 @@ class Tw:
 
     def add_cls(self, cls: str) -> None:
         """Append utilities (they win over existing ones)."""
-        self.set_cls(merge(self._tw_cls, cls))
+        self.set_cls(merge(self.cls, cls))
 
     def _tw_changed(self) -> None:
         """Hook for components that render content transforms."""

@@ -67,16 +67,25 @@ class Sidebar(Tw, Widget):
         header = [self.title, self.handle] if side == "left" else [self.handle, self.title]
         self.body = Box(*children, cls="h-fr col")
         super().__init__(Row(*header, cls=self.HEADER_CLS), self.body, id=id)
-        self._tw_init(self._cls_for(collapsed))
         self.set_reactive(Sidebar.collapsed, collapsed)
         self._apply(collapsed)
+
+    @property
+    def cls(self) -> str:
+        """The user class string (the border and width/rail are added to it)."""
+        return self.user_cls
+
+    def set_cls(self, cls: str) -> None:
+        """Replace the user class string. Widths come from `width` / `rail`."""
+        self.user_cls = cls
+        super().set_cls(self._cls_for(self.collapsed))
 
     def _cls_for(self, collapsed: bool) -> str:
         border = "border-r border-line" if self.side == "left" else "border-l border-line"
         return merge(border, self.user_cls, self.rail_cls if collapsed else self.width_cls)
 
     def _apply(self, collapsed: bool) -> None:
-        self.set_cls(self._cls_for(collapsed))
+        super().set_cls(self._cls_for(collapsed))
         self.body.set_cls("h-fr col hidden" if collapsed else "h-fr col")
         self.title.set_cls(merge(self.TITLE_CLS, "hidden") if collapsed else self.TITLE_CLS)
         expand, collapse = ("»", "«") if self.side == "left" else ("«", "»")

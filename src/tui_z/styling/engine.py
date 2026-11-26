@@ -22,7 +22,15 @@ from dataclasses import dataclass
 from functools import lru_cache
 
 from .errors import TailError
-from .utilities import BREAKPOINT_ORDER, BREAKPOINTS, PSEUDO_VARIANTS, TRANSFORMS, Block, apply_utility
+from .utilities import (
+    BREAKPOINT_ORDER,
+    BREAKPOINTS,
+    PSEUDO_VARIANTS,
+    TRANSFORMS,
+    Block,
+    add_transform,
+    apply_utility,
+)
 
 # --------------------------------------------------------------------------- #
 # Compile
@@ -104,10 +112,7 @@ def compile_cls(cls: str) -> Compiled:
         if util in TRANSFORMS:
             if variants:
                 raise TailError(f"'{util}' is a content transform and can't take variants: '{token}'")
-            if util.startswith("tracking-"):
-                for t in [t for t in transforms if t.startswith("tracking-")]:
-                    del transforms[t]
-            transforms[util] = None
+            add_transform(transforms, util)
             continue
         block = blocks.setdefault(tuple(variants), Block())
         try:

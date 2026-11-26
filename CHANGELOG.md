@@ -4,10 +4,22 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- `normal-case` undoes a default `uppercase` / `lowercase` / `capitalize` (as `tracking-normal` already did for tracking). Within each group, the last transform wins.
+- Opacity on arbitrary colors: `bg-[#102030]/50`.
+- `widget.applied_cls`: the full class string compiled onto a component (its `DEFAULT_CLS` plus yours), for debugging.
+
 ### Changed
 
 - The package is split into layers: `tui_z.styling` (the class compiler, inline styles and themes), `tui_z.core` (the `Tw` mixin, registry and stylesheet sync), `tui_z.components` and `tui_z.app`. Everything exported from `tui_z` is unchanged. Code that imported internal modules directly needs new paths: `tui_z.engine` → `tui_z.styling.engine` (utility tables in `tui_z.styling.utilities`), `tui_z.inline` → `tui_z.styling.inline`, `tui_z.theme` → `tui_z.styling.themes`, `tui_z.registry` → `tui_z.core.registry`.
 - All use of Textual's private API now lives in `tui_z._textual`.
+- Tests mirror the source layout. Every component passes shared contract checks, there are snapshot tests per component family in three themes, property-based tests for the class compiler, and CI requires 95% coverage.
+
+### Fixed
+
+- `Sidebar.cls` returned the full internal string (border and width included) instead of your class string, and a `set_cls()` on a sidebar was lost at the next toggle.
+- `add_cls()` on a `Sidebar` merged onto the internal string.
 
 ## [0.1.0] - unreleased
 

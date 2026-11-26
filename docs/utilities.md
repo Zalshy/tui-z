@@ -54,7 +54,7 @@ Shortcuts: `grow` (= `w-fr`), `grow-y` (= `h-fr`).
 | `scrollbar-{c}` | Scrollbar color |
 | `hatch-cross-{c}` | Hatched background |
 
-Add `/NN` for opacity: `bg-success/20`. Use brackets for a fixed color: `text-[#ff8800]`, `bg-[rgb(20,20,30)]`, `text-[red]`.
+Add `/NN` for opacity: `bg-success/20`. Use brackets for a fixed color: `text-[#ff8800]`, `bg-[rgb(20,20,30)]`, `text-[red]`, and `bg-[#ff8800]/30` for both.
 
 ### Theme colors
 
@@ -90,7 +90,9 @@ Palette names are **themeable**: `text-purple` is mauve in Catppuccin and magent
 
 ### Content transforms
 
-`uppercase` `lowercase` `capitalize` `tracking-wide` `tracking-wider`
+`uppercase` `lowercase` `capitalize` `normal-case` · `tracking-wide` `tracking-wider` `tracking-normal`
+
+The last case transform wins, and so does the last tracking one. `normal-case` and `tracking-normal` undo a component's default: `Label("Fair value", cls="normal-case")`.
 
 These change the text itself, so tui-z components apply them (Textual CSS can't). They work on `Text`, `Label`, `Badge`, `Stat`, `Panel` titles, table cells and log lines. Markup tags are left intact.
 

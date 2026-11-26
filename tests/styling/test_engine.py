@@ -84,3 +84,55 @@ def test_arbitrary_grid_rows_do_not_fix_row_count():
     css = decls("grid-cols-2 grid-rows-[auto]")
     assert "grid-rows: auto;" in css and "grid-size: 2;" in css
     assert "grid-size: 3;" in decls("grid-cols-[1fr_2fr_1fr]")
+
+
+def test_last_transform_in_each_group_wins():
+    assert compile_cls("uppercase tracking-wide normal-case").transforms == ("tracking-wide",)
+    assert compile_cls("uppercase capitalize").transforms == ("capitalize",)
+    assert compile_cls("tracking-wide tracking-normal lowercase").transforms == ("lowercase",)
+
+
+@pytest.mark.parametrize(("cls", "expected"), [
+    ("w-screen h-screen", ("width: 100vw;", "height: 100vh;")),
+    ("w-2fr h-[30%]", ("width: 2fr;", "height: 30%;")),
+    ("m-[2]", ("margin-top: 2;",)),
+    ("grid-rows-2 grid-cols-3", ("grid-size: 3 2;",)),
+    ("opacity-50 text-opacity-30", ("opacity: 50%;", "text-opacity: 30%;")),
+    ("bg-transparent", ("background: transparent;",)),
+    ("bg-[#102030]/50", ("background: #102030 50%;",)),
+    ("tint-error/10 scrollbar-primary", ("tint: $error 10%;", "scrollbar-color: $primary;")),
+    ("hatch-cross hatch-right-success/30", ("hatch: right $success 30%;",)),
+    ("hatch-left", ("hatch: left $foreground 20%;",)),
+    ("title-center title-bold title-success title-bg-panel",
+     ("border-title-align: center;", "border-title-style: bold;", "border-title-color: $success;",
+      "border-title-background: $panel;")),
+    ("subtitle-right", ("border-subtitle-align: right;",)),
+])
+def test_more_utilities(cls, expected):
+    css = decls(cls)
+    for line in expected:
+        assert line in css, (cls, line, css)
+
+
+def test_group_variants_target_the_group_parent():
+    c = compile_cls("group-hover:text-primary group-focus:bg-panel")
+    assert f".group:hover .{c.name} {{" in c.css
+    assert f".group:focus .{c.name} {{" in c.css
+
+
+@pytest.mark.parametrize("bad", ["w-abc", "bg-success/200", "grid-cols-x", "hatch-zigzag", "md:lg:bold",
+                                 "hover:uppercase", "text-Bad!"])
+def test_more_errors(bad):
+    with pytest.raises(TailError):
+        compile_cls(bad)
+
+
+def test_every_transform():
+    assert apply_transforms("ab cd", ("capitalize",)) == "Ab Cd"
+    assert apply_transforms("AB", ("lowercase",)) == "ab"
+    assert apply_transforms("ab", ("tracking-wider",)) == "a  b"
+
+
+def test_arbitrary_color_keeps_slashes_inside_brackets():
+    assert "color: rgb(10,20,30);" in decls("text-[rgb(10,20,30)]")
+    assert "background: #102030 50%;" in decls("bg-[#102030]/50")

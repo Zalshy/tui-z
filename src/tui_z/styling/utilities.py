@@ -38,7 +38,22 @@ TEXT_STYLES = {"bold", "italic", "underline", "strike", "reverse", "dim", "blink
 TEXT_STYLE_OFF = {"font-normal": "bold", "not-italic": "italic", "no-underline": "underline"}
 
 # Content transforms: not CSS, applied by tui_z components when rendering text.
-TRANSFORMS = {"uppercase", "lowercase", "capitalize", "tracking-wide", "tracking-wider", "tracking-normal"}
+TRANSFORM_GROUPS = (
+    ("uppercase", "lowercase", "capitalize", "normal-case"),
+    ("tracking-wide", "tracking-wider", "tracking-normal"),
+)
+TRANSFORMS = {t for group in TRANSFORM_GROUPS for t in group}
+_RESETS = {"normal-case", "tracking-normal"}  # undo the group, apply nothing
+
+
+def add_transform(transforms: dict[str, None], util: str) -> None:
+    """Record a content transform; within a group (case, tracking) the last wins."""
+    for group in TRANSFORM_GROUPS:
+        if util in group:
+            for t in group:
+                transforms.pop(t, None)
+    if util not in _RESETS:
+        transforms[util] = None
 
 PSEUDO_VARIANTS = {
     "hover": ":hover", "focus": ":focus", "focus-within": ":focus-within",
@@ -151,8 +166,9 @@ def color_value(token: str, sources: dict[str, str], utility: str) -> str:
     `sources` (var -> utility) so the app can validate them against the theme.
     """
     alpha = ""
-    if "/" in token and not token.startswith("["):
-        token, _, pct = token.rpartition("/")
+    head, slash, tail = token.rpartition("/")
+    if slash and (not token.startswith("[") or head.endswith("]")):  # `[#123456]/50` too
+        token, pct = head, tail
         if not pct.isdigit() or not 0 <= int(pct) <= 100:
             raise TailError(f"invalid opacity '/{pct}' in '{utility}'")
         alpha = f" {int(pct)}%"

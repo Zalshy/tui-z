@@ -2,7 +2,8 @@ import pytest
 from textual.app import ComposeResult
 from textual.color import Color
 
-from tui_z import Box, TailError, Text, TwApp
+from tui_z import THEME_NAMES, THEMES, Box, TailError, Text, TwApp
+from tui_z.styling.themes import EXTRA_TOKENS
 
 
 def make_app(*widgets_factory):
@@ -57,3 +58,42 @@ async def test_breakpoints():
     app = make_app(ui)
     async with app.run_test(size=(130, 24)):
         assert app.query_one("#g").styles.grid_size_columns == 3
+
+
+async def test_every_theme_applies_every_token(mount):
+    async with mount(Text("x", "text-purple bg-panel border border-line", id="t")) as (app, pilot):
+        for name in THEME_NAMES:
+            app.theme = name
+            await pilot.pause()
+            for token in EXTRA_TOKENS:
+                assert token in app.theme_variables, (name, token)
+            assert app.query_one("#t").styles.color == Color.parse(app.theme_variables["purple"])
+
+
+async def test_builtin_textual_themes_get_fallback_tokens(mount):
+    async with mount(Text("x")) as (app, pilot):
+        app.theme = "nord"
+        await pilot.pause()
+        for token in EXTRA_TOKENS:
+            assert token in app.theme_variables
+
+
+async def test_exact_palette_values_survive_textual(mount):
+    async with mount(Text("x")) as (app, pilot):
+        for t in THEMES:
+            app.theme = t.name
+            await pilot.pause()
+            for key in ("primary", "accent", "warning", "error", "background", "foreground"):
+                assert Color.parse(app.theme_variables[key]) == Color.parse(getattr(t, key)), (t.name, key)
+
+
+async def test_cycle_theme_wraps_and_handles_foreign_themes(mount):
+    async with mount(Text("x")) as (app, pilot):
+        assert app.theme == "terminal"
+        app.action_next_theme()
+        assert app.theme == THEME_NAMES[1]
+        app.action_prev_theme()
+        app.action_prev_theme()
+        assert app.theme == THEME_NAMES[-1]
+        app.theme = "nord"  # not in TW_THEMES: next goes to the first
+        assert app.cycle_theme() == THEME_NAMES[0]

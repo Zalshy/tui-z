@@ -18,7 +18,7 @@ from functools import lru_cache
 
 from .engine import split_variants
 from .errors import TailError
-from .utilities import TEXT_STYLES, TRANSFORMS, color_value
+from .utilities import TEXT_STYLES, TRANSFORMS, add_transform, color_value
 
 _ALIGN = {"text-left": "left", "text-center": "center", "text-right": "right"}
 
@@ -39,7 +39,7 @@ def inline(cls: str) -> Inline:
     sources: dict[str, str] = {}
     for util in cls.split():
         if util in TRANSFORMS:
-            transforms[util] = None
+            add_transform(transforms, util)
         elif util in TEXT_STYLES:
             flags[util] = True
         elif util == "font-normal":
