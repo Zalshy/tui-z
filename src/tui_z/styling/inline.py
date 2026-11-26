@@ -16,7 +16,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import lru_cache
 
-from .engine import TEXT_STYLES, TRANSFORMS, TailError, _split_variants, color_value
+from .engine import split_variants
+from .errors import TailError
+from .utilities import TEXT_STYLES, TRANSFORMS, color_value
 
 _ALIGN = {"text-left": "left", "text-center": "center", "text-right": "right"}
 
@@ -96,7 +98,7 @@ def row_variants(cls: str) -> dict[str, Inline]:
     """`"odd:bg-panel/40 hover:bg-boost text-muted"` -> {"": ..., "odd": ..., "hover": ...}."""
     groups: dict[str, list[str]] = {}
     for token in cls.split():
-        variants, util = _split_variants(token)
+        variants, util = split_variants(token)
         key = ":".join(variants)
         if key not in ("", "odd", "even", "hover"):
             raise TailError(f"row variants are odd:, even:, hover: — got '{token}'")

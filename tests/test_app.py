@@ -2,8 +2,7 @@ import pytest
 from textual.app import ComposeResult
 from textual.color import Color
 
-from tui_z import Box, Text, TwApp
-from tui_z.engine import TailError
+from tui_z import Box, TailError, Text, TwApp
 
 
 def make_app(*widgets_factory):

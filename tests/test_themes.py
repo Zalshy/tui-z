@@ -2,7 +2,7 @@ from textual.app import ComposeResult
 from textual.color import Color
 
 from tui_z import THEME_NAMES, Box, Row, Text, ThemeSwitcher, TwApp
-from tui_z.theme import EXTRA_TOKENS
+from tui_z.styling.themes import EXTRA_TOKENS
 
 
 class App(TwApp):

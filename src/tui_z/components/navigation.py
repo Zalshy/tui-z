@@ -1,4 +1,4 @@
-"""Collapsible side panel."""
+"""Navigation components: the collapsible sidebar."""
 
 from __future__ import annotations
 
@@ -9,8 +9,10 @@ from textual.message import Message
 from textual.reactive import reactive
 from textual.widget import Widget
 
-from .engine import merge
-from .widgets import Box, Row, Text, Tw
+from ..core.tw import Tw
+from ..styling.engine import merge
+from .content import Text
+from .layout import Box, Row
 
 
 class _Handle(Text):

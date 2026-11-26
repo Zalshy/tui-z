@@ -1,6 +1,7 @@
 import pytest
 
-from tui_z.engine import TailError, apply_transforms, compile_cls
+from tui_z.styling.engine import apply_transforms, compile_cls
+from tui_z.styling.errors import TailError
 
 
 def decls(cls: str) -> str:

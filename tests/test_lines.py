@@ -1,9 +1,8 @@
 import pytest
 from textual.app import ComposeResult
 
-from tui_z import LogView, Table, TwApp
-from tui_z.engine import TailError
-from tui_z.inline import column, inline, layout_columns, row_variants
+from tui_z import LogView, Table, TailError, TwApp
+from tui_z.styling.inline import column, inline, layout_columns, row_variants
 
 
 def test_inline_styles():

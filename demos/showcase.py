@@ -56,8 +56,8 @@ from tui_z import (
     TwApp,
     tw,
 )
-from tui_z.engine import BORDER_TYPES
-from tui_z.theme import SEMANTIC, SURFACES
+from tui_z.styling.themes import SEMANTIC, SURFACES
+from tui_z.styling.utilities import BORDER_TYPES
 
 # --------------------------------------------------------------------------- #
 # Shared class strings — this is how you build a design system with tui-z:

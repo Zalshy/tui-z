@@ -1,5 +1,25 @@
 # How it works and performance
 
+## Code layout
+
+tui-z is split into layers. Each one may import only from the layers above it, and `tests/test_architecture.py` enforces that.
+
+```
+src/tui_z/
+  _textual.py      every use of Textual's private API, each with a public fallback
+  styling/         pure: class strings -> CSS, inline styles, themes
+    utilities.py     what each utility means (the tables)
+    engine.py        splits strings, resolves variants, emits CSS
+    inline.py        the text-level subset used for table cells and log lines
+    themes.py        palettes and the ten themes
+  core/            the Tw mixin, the class registry, stylesheet sync
+  components/      every widget, one module per family
+    charts/          _scale.py holds the chart maths; one module per chart
+  app.py           TwApp, which ties it all together
+```
+
+Everything public is re-exported from `tui_z`, so user code never imports from these modules directly.
+
 ## The class compiler
 
 1. **Parse.** `compile_cls("border bg-surface hover:bg-boost")` splits the string into utilities, resolves their variants and maps each one to Textual CSS declarations. For the same property, the last utility wins.
@@ -37,7 +57,7 @@ tui-z's `Table` and `LogView` are **one widget each**, built on Textual's Line A
 - Each rendered line is **cached** by `(row identity, width)` and reused until its data, the width or the theme changes.
 - Adding a row is a list append plus a refresh, not a mount plus a layout pass.
 
-Per-cell and per-line `cls` is interpreted as an **inline style** (`tui_z.inline`). That's why only text-level utilities are allowed there.
+Per-cell and per-line `cls` is interpreted as an **inline style** (`tui_z.styling.inline`). That's why only text-level utilities are allowed there.
 
 ## Streaming charts
 

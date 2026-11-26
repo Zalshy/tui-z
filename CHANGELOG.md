@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- The package is split into layers: `tui_z.styling` (the class compiler, inline styles and themes), `tui_z.core` (the `Tw` mixin, registry and stylesheet sync), `tui_z.components` and `tui_z.app`. Everything exported from `tui_z` is unchanged. Code that imported internal modules directly needs new paths: `tui_z.engine` → `tui_z.styling.engine` (utility tables in `tui_z.styling.utilities`), `tui_z.inline` → `tui_z.styling.inline`, `tui_z.theme` → `tui_z.styling.themes`, `tui_z.registry` → `tui_z.core.registry`.
+- All use of Textual's private API now lives in `tui_z._textual`.
+
 ## [0.1.0] - unreleased
 
 The first public alpha.

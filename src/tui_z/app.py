@@ -1,19 +1,19 @@
-"""`TwApp`: a Textual App that understands utility classes."""
+"""`TwApp`: a Textual App that understands utility classes.
+
+This is the top layer: it may use anything in tui-z (components included).
+"""
 
 from __future__ import annotations
 
 from typing import ClassVar
 
 from textual.app import App
-from textual.css.stylesheet import CssSource
 from textual.dom import DOMNode
 from textual.widget import Widget
 
-from . import registry
-from .engine import BREAKPOINTS, TailError
-from .theme import THEME_NAMES, THEMES, fill_extra_tokens
-
-SOURCE_KEY = ("tui_z", "utilities")
+from .core.stylesheet import UtilityStylesheet
+from .styling.themes import THEME_NAMES, THEMES, fill_extra_tokens
+from .styling.utilities import BREAKPOINTS
 
 
 class TwApp(App):
@@ -35,8 +35,7 @@ class TwApp(App):
     ]
 
     def __init__(self, *args, **kwargs) -> None:
-        self._tw_version = 0
-        self._tw_chunks = 0
+        self._tw_sheet = UtilityStylesheet(self.TW_MAX_CHUNKS)
         super().__init__(*args, **kwargs)
         for theme in THEMES:
             self.register_theme(theme)
@@ -66,51 +65,9 @@ class TwApp(App):
         """Push newly registered utility classes into the stylesheet.
 
         Incremental: only the new rules are parsed and appended (Textual's
-        `reparse()` would re-parse every widget's CSS, ~20 ms). Each flush is a
-        small source chunk; chunks are consolidated when they pile up.
+        `reparse()` would re-parse every widget's CSS, ~20 ms).
         """
-        new = registry.since(self._tw_version)
-        if not new:
-            return
-        variables = self.theme_variables or self.get_css_variables()
-        for compiled in new:
-            for var, utility in compiled.variables:
-                if var not in variables:
-                    registry.discard(compiled.name)
-                    known = ", ".join(sorted(k for k in variables if "-" not in k))
-                    raise TailError(
-                        f"unknown color '{var}' in utility '{utility}'. "
-                        f"Theme colors: {known} (plus -lighten-N / -darken-N / -muted variants)"
-                    )
-        self._tw_version = registry.version()
-        css = "\n".join(c.css for c in new if c.css)
-        if css:
-            self._tw_add_css(css)
-
-    def _tw_add_css(self, css: str) -> None:
-        stylesheet = self.stylesheet
-        if self._tw_chunks >= self.TW_MAX_CHUNKS:  # consolidate into one source
-            for key in [k for k in stylesheet.source if k[0] == SOURCE_KEY[0]]:
-                del stylesheet.source[key]
-            self._tw_chunks = 0
-            css = registry.stylesheet()
-            stylesheet.add_source(css, read_from=(SOURCE_KEY[0], "utilities-0"), is_default_css=False)
-            self._tw_chunks = 1
-            stylesheet.reparse()
-            return
-        key = (SOURCE_KEY[0], f"utilities-{self._tw_chunks}")
-        self._tw_chunks += 1
-        try:
-            # Fast path (Textual internals): parse just this chunk and append.
-            if stylesheet._require_parse or stylesheet._rules is None:
-                raise LookupError  # a full parse is pending anyway
-            rules = stylesheet._parse_rules(css, key)
-            stylesheet.source[key] = CssSource(css, False, 0, "")
-            stylesheet._rules.extend(rules)
-            stylesheet._rules_map = None
-        except (AttributeError, LookupError, TypeError):
-            stylesheet.add_source(css, read_from=key, is_default_css=False)
-            stylesheet.parse()
+        self._tw_sheet.flush(self.stylesheet, self.theme_variables or self.get_css_variables())
 
     def _register(self, parent: DOMNode, *widgets: Widget, **kwargs) -> list[Widget]:
         # Widgets created in compose() have registered their classes by now;

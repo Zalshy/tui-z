@@ -1,47 +1,18 @@
-"""The utility-class engine: turns `cls="text-success bold p-1"` into Textual CSS.
+"""The utility table: what each utility (`p-1`, `text-success`, `border-b`) means.
 
-Each *unique class string* compiles to one generated CSS class (``tw-<hash>``).
-Compiling the whole string at once (instead of one CSS class per utility) lets
-us merge utilities that map onto a single Textual property (``border-heavy`` +
-``border-success`` -> ``border: heavy $success``) and resolve conflicts
-For the same property, the **last** utility wins.
-That is what makes component defaults overridable:
-``merge(component_defaults, user_cls)``.
-
-This module is pure: it never touches a running app. Color tokens become
-``$variables``; checking that they exist in the theme happens in ``TwApp``.
+`apply_utility(block, "p-1", sources)` adds one utility's declarations to a
+`Block` (all declarations for one selector). Adding a utility family means
+adding to the tables here, or a branch in `apply_utility`.
 """
 
 from __future__ import annotations
 
-import hashlib
 import re
 from dataclasses import dataclass, field
-from functools import lru_cache
 
-from .theme import PALETTE
-
-try:  # Textual's table of named colors (red, ansi_bright_green, ...)
-    from textual._color_constants import COLOR_NAME_TO_RGB as _NAMED_COLORS
-except ImportError:  # pragma: no cover - fall back to a parse probe
-    _NAMED_COLORS = None
-
-
-def _is_named_color(name: str) -> bool:
-    if _NAMED_COLORS is not None:
-        return name in _NAMED_COLORS
-    from textual.color import Color, ColorParseError
-
-    try:
-        Color.parse(name)
-    except ColorParseError:
-        return False
-    return True
-
-
-class TailError(ValueError):
-    """Raised for an unknown utility, a bad value or an unknown theme color."""
-
+from .._textual import is_named_color
+from .errors import TailError
+from .themes import PALETTE
 
 # --------------------------------------------------------------------------- #
 # Tables
@@ -136,6 +107,7 @@ _RE_SPACE = re.compile(r"^(-?)([pm])([xytrbl]?)-(.+)$")
 _RE_TOKEN = re.compile(r"[a-z][a-z0-9-]*")
 
 
+
 # --------------------------------------------------------------------------- #
 # Value parsers
 # --------------------------------------------------------------------------- #
@@ -194,7 +166,7 @@ def color_value(token: str, sources: dict[str, str], utility: str) -> str:
         return f"${name}{alpha}"
     # NB: never probe with Color.parse() + except: a failed parse runs a fuzzy
     # "did you mean" search over every color name (~0.8 ms per token).
-    if _is_named_color(name):
+    if is_named_color(name):
         return name + alpha
     if not _RE_TOKEN.fullmatch(name):
         raise TailError(f"invalid color '{token}' in '{utility}'")
@@ -202,12 +174,13 @@ def color_value(token: str, sources: dict[str, str], utility: str) -> str:
     return f"${name}{alpha}"
 
 
+
 # --------------------------------------------------------------------------- #
 # Per-variant accumulator
 # --------------------------------------------------------------------------- #
 
 @dataclass
-class _Block:
+class Block:
     """All declarations for one selector (base, `:hover`, `md:` ...)."""
 
     props: dict[str, str] = field(default_factory=dict)
@@ -259,7 +232,7 @@ class _Block:
         return out
 
 
-def _apply(block: _Block, util: str, sources: dict[str, str]) -> None:
+def apply_utility(block: Block, util: str, sources: dict[str, str]) -> None:
     """Apply one utility (variant prefix already stripped) to a block."""
     if util in STATIC:
         block.props.update(STATIC[util])
@@ -394,129 +367,3 @@ def _apply(block: _Block, util: str, sources: dict[str, str]) -> None:
     raise TailError(f"unknown utility '{util}'")
 
 
-# --------------------------------------------------------------------------- #
-# Compile
-# --------------------------------------------------------------------------- #
-
-@dataclass(frozen=True)
-class Compiled:
-    """The result of compiling one class string."""
-
-    name: str  # generated Textual class name, e.g. "tw-3fa9c1d2e0"
-    css: str  # TCSS for that class (may be empty)
-    transforms: tuple[str, ...]  # content transforms (uppercase, tracking-wide ...)
-    variables: tuple[tuple[str, str], ...]  # (theme variable, utility that used it)
-
-
-def split_tokens(cls: str) -> list[str]:
-    return cls.split()
-
-
-def _split_variants(token: str) -> tuple[list[str], str]:
-    """`md:hover:bg-panel` -> (['md', 'hover'], 'bg-panel'). Colons inside [] are kept."""
-    parts, depth, cur = [], 0, ""
-    for ch in token:
-        if ch == "[":
-            depth += 1
-        elif ch == "]":
-            depth -= 1
-        if ch == ":" and depth == 0:
-            parts.append(cur)
-            cur = ""
-        else:
-            cur += ch
-    return parts, cur
-
-
-def _selector(name: str, variants: list[str]) -> list[str]:
-    """Build the selector(s) for a variant chain."""
-    pseudo = ""
-    group = ""
-    breakpoint: str | None = None
-    for v in variants:
-        if v in PSEUDO_VARIANTS:
-            pseudo += PSEUDO_VARIANTS[v]
-        elif v.startswith("group-") and v[6:] in PSEUDO_VARIANTS:
-            group += PSEUDO_VARIANTS[v[6:]]
-        elif v in BREAKPOINTS:
-            if breakpoint is not None:
-                raise TailError(f"more than one breakpoint in variant chain: {variants}")
-            breakpoint = v
-        else:
-            raise TailError(f"unknown variant '{v}:'")
-    sel = f".{name}{pseudo}"
-    if group:
-        sel = f".group{group} {sel}"
-    if breakpoint is None:
-        return [sel]
-    # min-width semantics: md: applies at md and every larger breakpoint
-    idx = BREAKPOINT_ORDER.index(breakpoint)
-    return [f"Screen.-tw-{bp} {sel}" for bp in BREAKPOINT_ORDER[idx:]]
-
-
-def class_name_for(cls: str) -> str:
-    digest = hashlib.blake2s(cls.encode(), digest_size=5).hexdigest()
-    return f"tw-{digest}"
-
-
-@lru_cache(maxsize=4096)
-def compile_cls(cls: str) -> Compiled:
-    """Compile a class string. Cached; raises TailError on bad input."""
-    tokens = split_tokens(cls)
-    normalized = " ".join(tokens)
-    name = class_name_for(normalized)
-    blocks: dict[tuple[str, ...], _Block] = {}
-    transforms: dict[str, None] = {}
-    sources: dict[str, str] = {}
-
-    for token in tokens:
-        variants, util = _split_variants(token)
-        if util in TRANSFORMS:
-            if variants:
-                raise TailError(f"'{util}' is a content transform and can't take variants: '{token}'")
-            if util.startswith("tracking-"):
-                for t in [t for t in transforms if t.startswith("tracking-")]:
-                    del transforms[t]
-            transforms[util] = None
-            continue
-        block = blocks.setdefault(tuple(variants), _Block())
-        try:
-            _apply(block, util, sources)
-        except TailError as error:
-            raise TailError(f"{error} (in cls={cls!r})") from None
-
-    rules = []
-    for variants, block in blocks.items():
-        decls = block.declarations()
-        if not decls:
-            continue
-        selectors = _selector(name, list(variants))
-        body = "\n".join(f"    {k}: {v};" for k, v in decls.items())
-        rules.append(f"{', '.join(selectors)} {{\n{body}\n}}")
-
-    return Compiled(
-        name=name,
-        css="\n".join(rules),
-        transforms=tuple(transforms),
-        variables=tuple(sources.items()),
-    )
-
-
-def merge(*classes: str | None) -> str:
-    """Concatenate class strings; later ones win on conflicts (at compile time)."""
-    return " ".join(c for c in classes if c)
-
-
-def apply_transforms(text: str, transforms: tuple[str, ...]) -> str:
-    for t in transforms:
-        if t == "uppercase":
-            text = text.upper()
-        elif t == "lowercase":
-            text = text.lower()
-        elif t == "capitalize":
-            text = text.title()
-        elif t == "tracking-wide":
-            text = " ".join(text)
-        elif t == "tracking-wider":
-            text = "  ".join(text)
-    return text

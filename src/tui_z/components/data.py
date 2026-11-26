@@ -1,4 +1,7 @@
-"""Line-based components: one widget, virtualized rendering, cached lines.
+"""Data components: tables, logs and feeds.
+
+`Table` and `LogView` are line-based: one widget, virtualized rendering,
+cached lines.
 
 `Table` and `LogView` draw every row/line inside a single widget (Textual's
 Line API) instead of mounting widgets per row or cell:
@@ -8,7 +11,7 @@ Line API) instead of mounting widgets per row or cell:
 - adding a row is a list append + refresh, not a mount + layout.
 
 Styling still uses class strings; per-cell/per-line `cls` is interpreted as an
-inline text style (see `tui_z.inline`).
+inline text style (see `tui_z.styling.inline`).
 """
 
 from __future__ import annotations
@@ -20,15 +23,18 @@ from itertools import count
 from typing import ClassVar
 
 from textual import events
+from textual.app import RenderResult
 from textual.content import Content
 from textual.geometry import Size
 from textual.scroll_view import ScrollView
 from textual.strip import Strip
 from textual.visual import Visual
+from textual.widget import Widget
 
-from .engine import TailError, apply_transforms, merge
-from .inline import Inline, column, inline, layout_columns, row_variants
-from .widgets import Tw
+from ..core.tw import Tw, transform_markup
+from ..styling.engine import apply_transforms, merge
+from ..styling.errors import TailError
+from ..styling.inline import Inline, column, inline, layout_columns, row_variants
 
 type Cell = str | tuple[str, str]
 """A table cell: plain text/markup, or (text, cls) to style that cell."""
@@ -55,9 +61,7 @@ def _fit(content: Content, width: int, align: str) -> Content:
 
 def _markup(text: str, transforms: tuple[str, ...]) -> Content:
     if transforms:
-        from .widgets import _transform_markup
-
-        text = _transform_markup(text, transforms)
+        text = transform_markup(text, transforms)
     return Content.from_markup(text)
 
 
@@ -329,3 +333,51 @@ class Table(LineView):
 
     def on_leave(self, event: events.Leave) -> None:
         self._set_hover(None)
+
+
+# --------------------------------------------------------------------------- #
+# Ticker
+# --------------------------------------------------------------------------- #
+
+class Ticker(Tw, Widget):
+    """A scrolling one-line feed. Items are Textual markup (`[$success]+8%[/]`).
+
+    Ticker(["[b $error]LIVE FEED[/]", "VETO $NOVAKIT", ...], "bg-surface")
+    """
+
+    DEFAULT_CLS = "w-full h-1"
+
+    def __init__(self, items: Sequence[str] = (), cls: str = "", *, separator: str = "   ·   ",
+                 speed: float = 0.12, id: str | None = None) -> None:
+        super().__init__(id=id)
+        self.separator = separator
+        self.speed = speed
+        self._offset = 0
+        self._tw_init(cls)
+        self.set_items(items)
+
+    def set_items(self, items: Sequence[str]) -> None:
+        sep = Content.from_markup(f"[$line]{self.separator}[/]")
+        self._content = sep.join([Content.from_markup(i) for i in items]) + sep if items else Content("")
+        self._loop: Content | None = None  # rebuilt lazily for the current width
+        self._loop_width = -1
+        self.refresh()
+
+    def on_mount(self) -> None:
+        self.set_interval(self.speed, self._advance)
+
+    def _advance(self) -> None:
+        if self._content.cell_length:
+            self._offset = (self._offset + 1) % len(self._content)
+            self.refresh()
+
+    def render(self) -> RenderResult:
+        width = self.content_region.width
+        if not len(self._content):
+            return ""
+        if self._loop is None or self._loop_width != width:
+            repeats = -(-(width + len(self._content)) // len(self._content))  # ceil
+            self._loop = Content("").join([self._content] * repeats)
+            self._loop_width = width
+        return self._loop[self._offset: self._offset + width]
+

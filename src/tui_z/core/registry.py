@@ -7,7 +7,7 @@ several apps in one process (tests!) each get the full stylesheet.
 
 from __future__ import annotations
 
-from .engine import Compiled
+from ..styling.engine import Compiled
 
 _compiled: dict[str, Compiled] = {}
 
