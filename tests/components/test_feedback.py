@@ -19,7 +19,7 @@ from tui_z.components.feedback import variant_color
 
 
 class Toasts(TwApp):
-    TW_TOAST_TIMEOUT = 0.3
+    TW_TOAST_TIMEOUT = 30.0  # long: a slow runner never expires a toast mid-test; expiry tests pass their own
 
     def __init__(self) -> None:
         super().__init__()
@@ -34,6 +34,15 @@ class Toasts(TwApp):
 
 def stack(app) -> ToastStack:
     return app.screen.query_one(ToastStack)
+
+
+async def until(pilot, condition, timeout: float = 5.0) -> None:
+    """Wait for `condition()` (polling), so timing tests don't depend on the runner's speed."""
+    for _ in range(int(timeout / 0.05)):
+        if condition():
+            return
+        await pilot.pause(0.05)
+    raise AssertionError("condition never became true")
 
 
 async def slid_in(pilot, app) -> None:
@@ -61,13 +70,13 @@ def test_unknown_variant_is_an_error():
 async def test_toast_shows_and_times_out():
     app = Toasts()
     async with app.run_test() as pilot:
-        toast = app.toast("Order filled", title="Fill", variant="success")
+        toast = app.toast("Order filled", title="Fill", variant="success", timeout=1.0)
         await pilot.pause()
         assert toast in stack(app).toasts
         texts = [plain(t) for t in toast.query(Text)]
         assert "Fill" in texts and "Order filled" in texts and "✓" in texts
         assert "border-success" in toast.applied_cls
-        await pilot.pause(0.6)
+        await until(pilot, lambda: app.dismissed)  # the Dismissed message arrives after the flag
         assert toast.dismissed and app.dismissed == [("Order filled", "timeout")]
 
 
@@ -101,15 +110,16 @@ async def test_toast_close_button_and_action():
 async def test_hover_pauses_the_countdown():
     app = Toasts()
     async with app.run_test() as pilot:
-        toast = app.toast("hover me", timeout=0.8)
+        toast = app.toast("hover me", timeout=2.0)
         await pilot.pause()
         await slid_in(pilot, app)  # let it slide in under the pointer
         await pilot.hover(toast)
-        await pilot.pause(1.0)
-        assert not toast.dismissed
+        await pilot.pause()
+        hovered_at = toast.remaining
+        await pilot.pause(0.5)
+        assert toast.remaining == hovered_at and not toast.dismissed  # the countdown stopped
         await pilot.hover("#body")
-        await pilot.pause(1.0)
-        assert toast.dismissed
+        await until(pilot, lambda: toast.dismissed)
 
 
 async def test_same_message_bumps_a_counter_and_restarts_the_timer():
@@ -206,10 +216,7 @@ def test_stack_rejects_unknown_position():
 
 
 async def test_notify_goes_through_toasts():
-    class App(Toasts):
-        TW_TOAST_TIMEOUT = 30.0  # no expiry on a slow runner
-
-    app = App()
+    app = Toasts()
     async with app.run_test() as pilot:
         app.notify("Saved", title="Disk", severity="information")
         app.notify("Disk full", severity="error", timeout=10)
