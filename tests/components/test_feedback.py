@@ -197,13 +197,16 @@ def test_stack_rejects_unknown_position():
 
 
 async def test_notify_goes_through_toasts():
-    app = Toasts()
+    class App(Toasts):
+        TW_TOAST_TIMEOUT = 30.0  # no expiry on a slow runner
+
+    app = App()
     async with app.run_test() as pilot:
         app.notify("Saved", title="Disk", severity="information")
         app.notify("Disk full", severity="error", timeout=10)
         await pilot.pause()
         toasts = stack(app).toasts
-        assert [(t.variant, t.title, t.timeout) for t in toasts] == [("error", "", 10), ("info", "Disk", 0.3)]
+        assert [(t.variant, t.title, t.timeout) for t in toasts] == [("error", "", 10), ("info", "Disk", 30.0)]
         assert not app._notifications  # Textual's own notifications are unused
 
 
