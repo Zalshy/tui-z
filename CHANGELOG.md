@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-26
+
 ### Added
 
 - Notifications: `app.toast(...)` shows a `Toast` in a corner (`TW_TOASTS`), with variants, a countdown that pauses on hover, an action button and a `×N` count for repeats. Textual's `notify()` goes through it too (`TW_TOASTS = None` keeps Textual's). `NotificationCenter` lists every toast with an unread count.
