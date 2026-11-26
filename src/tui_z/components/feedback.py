@@ -17,6 +17,7 @@ from typing import ClassVar
 from textual import events
 from textual.app import ComposeResult, RenderResult
 from textual.content import Content
+from textual.css.scalar import ScalarOffset
 from textual.message import Message
 from textual.reactive import reactive
 from textual.screen import ModalScreen
@@ -83,6 +84,8 @@ class Toast(Tw, Widget):
       countdown bar; hovering pauses it
     - a click dismisses it; `action=("Retry", callback)` adds a button
     - the same message again bumps a ×N counter instead of stacking
+    - in a `ToastStack` it slides in from the side of its corner (`SLIDE`
+      seconds; Textual's `animation_level = "none"` turns it off)
 
     Posts `Toast.Dismissed(toast, reason)` with reason "timeout", "closed",
     "clicked", "action", "replaced" or "dismissed".
@@ -93,6 +96,8 @@ class Toast(Tw, Widget):
     TITLE_CLS: ClassVar[str] = "bold w-fr truncate"
     MESSAGE_CLS: ClassVar[str] = "text-foreground w-full"
     TICK: ClassVar[float] = 0.1
+    SLIDE: ClassVar[float] = 0.3
+    """Seconds the slide-in takes (0: no slide)."""
 
     class Dismissed(Message):
         def __init__(self, toast: Toast, reason: str) -> None:
@@ -116,6 +121,8 @@ class Toast(Tw, Widget):
         self.remaining = timeout or 0.0
         self.count = 1
         self.dismissed = False
+        self.slide_from: str | None = None
+        """"right" or "left": slide in from that side when mounted (set by `ToastStack`)."""
         c = self.color
         self.counter = Text("", f"text-{c} bold w-auto ml-1 hidden", markup=False)
         header = Row(
@@ -145,6 +152,19 @@ class Toast(Tw, Widget):
     def on_mount(self) -> None:
         if self.timeout:
             self.set_interval(self.TICK, self._tick)
+        if self.slide_from and self.SLIDE and self.app.animation_level != "none":
+            # Off screen until the layout knows our width, then slide in.
+            self.styles.offset = (self._side * self.screen.size.width, 0)
+            self.call_after_refresh(self._slide_in)
+
+    @property
+    def _side(self) -> int:
+        return 1 if self.slide_from == "right" else -1
+
+    def _slide_in(self) -> None:
+        self.styles.offset = (self._side * (self.outer_size.width + 2), 0)  # just past the edge
+        self.styles.animate("offset", ScalarOffset.from_offset((0, 0)), duration=self.SLIDE,
+                            easing="out_cubic", level="basic")
 
     def _tick(self) -> None:
         if self.dismissed or self.is_mouse_over:
@@ -195,13 +215,15 @@ TOAST_POSITIONS: dict[str, str] = {
 class ToastStack(Tw, Widget):
     """Holds the toasts of one screen, docked to a corner. `TwApp` creates it.
 
+    New toasts slide in from the side of their corner (centered ones just appear).
+
     The stack itself is invisible (clicks go through to the widgets under it);
     only its toasts are drawn.
     """
 
     DEFAULT_CLS = "w-full h-auto px-1 pb-1 invisible"
 
-    def __init__(self, *toasts: Toast, position: str = "bottom-right", max_toasts: int = 4,
+    def __init__(self, *toasts: Toast, position: str = "top-right", max_toasts: int = 4,
                  cls: str = "", id: str | None = None) -> None:
         if position not in TOAST_POSITIONS:
             raise ValueError(f"unknown toast position {position!r}; use one of {', '.join(TOAST_POSITIONS)}")
@@ -242,6 +264,8 @@ class ToastStack(Tw, Widget):
         excess = max(0, len(live) - self.max_toasts + 1)  # make room for the new one
         for old in (live[len(live) - excess:] if top else live[:excess]):  # the oldest go
             old.dismiss("replaced")
+        side = self.position.rsplit("-", 1)[1]
+        toast.slide_from = side if side in ("left", "right") else None
         if top and live:  # newest nearest the edge
             self.mount(toast, before=0)
         else:

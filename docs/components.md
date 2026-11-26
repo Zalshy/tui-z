@@ -339,7 +339,7 @@ With no list, it shows every binding with `show=True` that's active for the focu
 
 ### Toasts
 
-Short-lived notifications in a corner of the screen.
+Short-lived notifications in a corner of the screen (top right by default). New toasts slide in from the side of their corner.
 
 ```python
 self.toast("Order filled", variant="success")
@@ -353,13 +353,14 @@ self.notify("Saved")      # Textual's notify() shows a tui-z toast too
 - **Dismissing**: click a toast or its `✕`. An `action` adds a button that runs the callback, then dismisses the toast.
 - **Repeats**: the same message again shows `×2` on the toast that's already there and restarts its timer, instead of stacking a duplicate.
 - **Events**: each toast posts `Toast.Dismissed` with `.reason`: `"timeout"`, `"closed"`, `"clicked"`, `"action"`, `"replaced"` or `"dismissed"`.
+- **Slide-in**: takes `Toast.SLIDE` seconds (0.3; `0` turns it off). Toasts in a centered position just appear, and Textual's `animation_level = "none"` (or `TEXTUAL_ANIMATIONS=none`) turns every slide off.
 - **Threads**: `toast()` and `notify()` are safe to call from a worker thread.
 
 Settings on `TwApp`:
 
 ```python
 class MyApp(TwApp):
-    TW_TOASTS = "top-right"       # where toasts appear: top-/bottom- + left/center/right
+    TW_TOASTS = "bottom-right"    # where toasts appear (default top-right): top-/bottom- + left/center/right
     TW_TOAST_MAX = 3              # most on screen; the oldest is dismissed for a new one
     TW_TOAST_TIMEOUT = 6.0
 ```

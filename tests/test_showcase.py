@@ -53,7 +53,7 @@ async def test_showcase_interactions(showcase_module):
         app._toast_from_form()
         app._press_toast_repeat()
         await pilot.pause()
-        assert stack.toasts[-1].count == 2  # the repeat merged into the newest toast
+        assert stack.toasts[0].count == 2  # the repeat merged into the newest toast (top: first)
 
         inbox = app.query_one("#inbox", Sidebar)
         await pilot.press("i")
