@@ -1,0 +1,305 @@
+import threading
+
+import pytest
+from helpers import plain
+
+from tui_z import (
+    Alert,
+    Button,
+    Dialog,
+    NotificationCenter,
+    Progress,
+    Spinner,
+    Text,
+    Toast,
+    ToastStack,
+    TwApp,
+)
+from tui_z.components.feedback import variant_color
+
+
+class Toasts(TwApp):
+    TW_TOAST_TIMEOUT = 0.3
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.dismissed: list[tuple[str, str]] = []
+
+    def compose(self):
+        yield Text("body", id="body")
+
+    def on_toast_dismissed(self, event: Toast.Dismissed) -> None:
+        self.dismissed.append((event.toast.message, event.reason))
+
+
+def stack(app) -> ToastStack:
+    return app.screen.query_one(ToastStack)
+
+
+# -- variants -------------------------------------------------------------------
+
+def test_unknown_variant_is_an_error():
+    assert variant_color("warning") == "warning" and variant_color("neutral") == "muted"
+    with pytest.raises(ValueError, match="variant"):
+        Toast("x", variant="loud")
+    with pytest.raises(ValueError, match="variant"):
+        Alert("x", variant="loud")
+
+
+# -- Toast ----------------------------------------------------------------------
+
+async def test_toast_shows_and_times_out():
+    app = Toasts()
+    async with app.run_test() as pilot:
+        toast = app.toast("Order filled", title="Fill", variant="success")
+        await pilot.pause()
+        assert toast in stack(app).toasts
+        texts = [plain(t) for t in toast.query(Text)]
+        assert "Fill" in texts and "Order filled" in texts and "✓" in texts
+        assert "border-success" in toast.applied_cls
+        await pilot.pause(0.6)
+        assert toast.dismissed and app.dismissed == [("Order filled", "timeout")]
+
+
+async def test_toast_without_timeout_stays_until_clicked():
+    app = Toasts()
+    async with app.run_test() as pilot:
+        toast = app.toast("Sticky", timeout=None)
+        await pilot.pause(0.5)
+        assert not toast.dismissed and toast.countdown is None
+        await pilot.click(toast)
+        await pilot.pause()
+        assert app.dismissed == [("Sticky", "clicked")]
+
+
+async def test_toast_close_button_and_action():
+    app = Toasts()
+    ran = []
+    async with app.run_test(size=(100, 30)) as pilot:
+        closable = app.toast("one", timeout=None)
+        acting = app.toast("two", timeout=None, action=("Retry", lambda: ran.append(1)))
+        await pilot.pause()
+        await pilot.click(closable.query_one("_Close"))
+        await pilot.click(acting.query_one(Button))
+        await pilot.pause()
+        assert ran == [1]
+        assert app.dismissed == [("one", "closed"), ("two", "action")]
+
+
+async def test_hover_pauses_the_countdown():
+    app = Toasts()
+    async with app.run_test() as pilot:
+        toast = app.toast("hover me", timeout=0.3)
+        await pilot.pause()
+        await pilot.hover(toast)
+        await pilot.pause(0.6)
+        assert not toast.dismissed
+        await pilot.hover("#body")
+        await pilot.pause(0.6)
+        assert toast.dismissed
+
+
+async def test_same_message_bumps_a_counter_and_restarts_the_timer():
+    app = Toasts()
+    async with app.run_test() as pilot:
+        first = app.toast("Feed lag", variant="warning")
+        await pilot.pause(0.2)
+        again = app.toast("Feed lag", variant="warning")
+        await pilot.pause()
+        assert again is first and first.count == 2
+        assert plain(first.counter) == "×2" and first.counter.display
+        assert first.remaining > 0.2
+        assert len(stack(app).toasts) == 1
+        assert len(app.tw_notifications) == 2  # both are remembered
+
+
+async def test_stack_keeps_at_most_max_toasts():
+    app = Toasts()
+    app.TW_TOAST_MAX = 2
+    async with app.run_test(size=(100, 40)) as pilot:
+        for i in range(4):
+            app.toast(f"m{i}", timeout=None)
+            await pilot.pause()
+        assert [t.message for t in stack(app).toasts] == ["m2", "m3"]
+        assert ("m0", "replaced") in app.dismissed
+
+
+async def test_top_positions_put_the_newest_first():
+    class Top(Toasts):
+        TW_TOASTS = "top-left"
+
+    app = Top()
+    async with app.run_test(size=(100, 40)) as pilot:
+        app.toast("old", timeout=None)
+        await pilot.pause()
+        app.toast("new", timeout=None)
+        await pilot.pause()
+        s = stack(app)
+        assert [t.message for t in s.toasts] == ["new", "old"]
+        assert "dock-top" in s.applied_cls and "justify-start" in s.applied_cls
+        assert s.styles.dock == "top"
+
+
+def test_stack_rejects_unknown_position():
+    with pytest.raises(ValueError, match="position"):
+        ToastStack(position="middle")
+
+
+async def test_notify_goes_through_toasts():
+    app = Toasts()
+    async with app.run_test() as pilot:
+        app.notify("Saved", title="Disk", severity="information")
+        app.notify("Disk full", severity="error", timeout=10)
+        await pilot.pause()
+        toasts = stack(app).toasts
+        assert [(t.variant, t.title, t.timeout) for t in toasts] == [("info", "Disk", 0.3), ("error", "", 10)]
+        assert not app._notifications  # Textual's own notifications are unused
+
+
+async def test_textual_notifications_when_toasts_are_off():
+    class Native(Toasts):
+        TW_TOASTS = None
+
+    app = Native()
+    async with app.run_test() as pilot:
+        app.notify("native")
+        await pilot.pause()
+        assert not app.screen.query(ToastStack)
+        assert [n.message for n in app._notifications] == ["native"]
+
+
+async def test_toast_from_a_worker_thread():
+    app = Toasts()
+    async with app.run_test() as pilot:
+        results = []
+        thread = threading.Thread(target=lambda: results.append(app.toast("from thread", timeout=None)))
+        thread.start()
+        while thread.is_alive():
+            await pilot.pause(0.05)
+        await pilot.pause()
+        assert results == [None]
+        assert [t.message for t in stack(app).toasts] == ["from thread"]
+
+
+async def test_toasts_follow_the_active_screen():
+    app = Toasts()
+    async with app.run_test() as pilot:
+        app.push_screen(Dialog("modal"))
+        await pilot.pause()
+        app.toast("on the dialog", timeout=None)
+        await pilot.pause()
+        assert app.screen.query_one(ToastStack).toasts[0].message == "on the dialog"
+
+
+# -- NotificationCenter -----------------------------------------------------------
+
+async def test_notification_center_records_history_and_unread():
+    app = Toasts()
+    async with app.run_test(size=(100, 30)) as pilot:
+        app.toast("before mount", variant="error")
+        center = NotificationCenter(cls="h-8")
+        await app.mount(center)
+        await pilot.pause()
+        assert center.history.line_count() == 1 and center.unread == 0
+        app.toast("Order filled", title="Fill", variant="success")
+        app.toast("Lag", variant="warning")
+        await pilot.pause()
+        assert center.history.line_count() == 3 and center.unread == 2
+        assert plain(center.badge) == "2" and center.badge.display
+        await pilot.click(center)
+        await pilot.pause()
+        assert center.unread == 0 and not center.badge.display
+        center.clear()
+        assert center.history.line_count() == 0
+
+
+# -- Alert ----------------------------------------------------------------------
+
+async def test_alert_variant_title_update_and_dismiss(mount):
+    alert = Alert("Prices delayed", title="Market closed", variant="warning", dismissible=True, id="a")
+    dismissed = []
+
+    class App(TwApp):
+        def compose(self):
+            yield alert
+
+        def on_alert_dismissed(self, event: Alert.Dismissed) -> None:
+            dismissed.append(event.reason)
+
+    app = App()
+    async with app.run_test() as pilot:
+        assert "border-warning" in alert.applied_cls and "bg-warning/10" in alert.applied_cls
+        texts = [plain(t) for t in alert.query(Text)]
+        assert texts[:3] == ["!", "Market closed", "Prices delayed"]
+        alert.update("Back at 9:30")
+        assert plain(alert.message_text) == "Back at 9:30"
+        await pilot.click(alert.query_one("_Close"))
+        await pilot.pause()
+        assert dismissed == ["closed"] and not app.query("#a")
+
+
+# -- Progress -------------------------------------------------------------------
+
+async def test_progress_renders_label_bar_and_percentage(mount):
+    p = Progress(25, 100, "w-30", label="Sync")
+    async with mount(p) as (app, pilot):
+        text = plain(p)
+        assert text.startswith("Sync ") and text.endswith(" 25%") and len(text) == 30
+        p.advance(25)
+        assert p.percentage == 0.5 and plain(p).endswith(" 50%")
+        p.update(value=200)
+        assert p.percentage == 1.0
+        p.update(total=0)
+        assert p.percentage == 1.0
+        p.update(label="Done", total=10, value=5)
+        assert plain(p).startswith("Done ") and p.percentage == 0.5
+
+
+async def test_progress_indeterminate_sweeps(mount):
+    p = Progress(total=None, cls="w-20", show_percentage=False)
+    async with mount(p) as (app, pilot):
+        assert p.percentage is None
+        before = p.render()
+        await pilot.pause(0.3)
+        assert p.render().spans != before.spans
+
+
+# -- Spinner --------------------------------------------------------------------
+
+async def test_spinner_spins_and_stops(mount):
+    s = Spinner("Syncing", "w-20")
+    async with mount(s) as (app, pilot):
+        first = plain(s)
+        assert first.endswith(" Syncing") and first[0] in Spinner.FRAMES
+        await pilot.pause(0.3)
+        assert plain(s) != first
+        s.stop("Synced")
+        assert plain(s) == "✓ Synced"
+        frame = s.frame
+        await pilot.pause(0.2)
+        assert s.frame == frame
+        s.start("Again")
+        assert plain(s).endswith(" Again")
+        assert plain(Spinner()) in Spinner.FRAMES
+
+
+# -- Dialog ---------------------------------------------------------------------
+
+async def test_dialog_returns_the_pressed_button():
+    app = Toasts()
+    results = []
+    async with app.run_test(size=(100, 30)) as pilot:
+        dialog = Dialog("Delete 3 orders?", title="Confirm",
+                        buttons=[("Cancel", "cancel"), ("Delete", "delete", "text-error border-error")])
+        app.push_screen(dialog, results.append)
+        await pilot.pause()
+        buttons = list(dialog.query(Button))
+        assert [b.name for b in buttons] == ["cancel", "delete"]
+        assert app.focused is buttons[-1]  # the main action
+        await pilot.press("enter")
+        await pilot.pause()
+        app.push_screen(Dialog("Sure?"), results.append)
+        await pilot.pause()
+        await pilot.press("escape")
+        await pilot.pause()
+        assert results == ["delete", None]

@@ -2,16 +2,23 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from typing import ClassVar
+from collections.abc import Iterable, Sequence
+from typing import Any, ClassVar
 
 from textual import events
+from textual.app import RenderResult
+from textual.content import Content
 from textual.message import Message
+from textual.reactive import reactive
 from textual.theme import Theme
+from textual.widget import Widget
+from textual.widgets import Input as TextualInput
+from textual.widgets import Select as TextualSelect
 from textual.widgets import Static
 
-from ..core.tw import Tw
+from ..core.tw import Tw, check_inline, tw
 from ..styling.engine import apply_transforms, merge
+from ..styling.inline import inline
 from ..styling.themes import THEME_NAMES
 from .content import Text
 from .layout import Box
@@ -51,7 +58,8 @@ class Button(Tw, Static, can_focus=True):
     def label(self) -> str:
         return self._label
 
-    def on_click(self) -> None:
+    def on_click(self, event: events.Click) -> None:
+        event.stop()  # a press is not also a click on whatever contains the button
         self.action_press()
 
     def action_press(self) -> None:
@@ -98,3 +106,209 @@ class ThemeSwitcher(Box):
         for item in self.items:
             item.set_cls(self.active_cls if item.theme_name == name else self.item_cls)
             item.update(f"● {item.theme_name}" if item.theme_name == name else f"  {item.theme_name}")
+
+
+# --------------------------------------------------------------------------- #
+# Toggles
+# --------------------------------------------------------------------------- #
+
+class _Toggle(Tw, Widget, can_focus=True):
+    """Base for Checkbox / Switch: a focusable on/off control with a label."""
+
+    DEFAULT_CLS = "w-auto h-1 cursor-pointer focus:bg-boost disabled:text-opacity-50"
+    ON_CLS: ClassVar[str] = "text-primary bold"
+    OFF_CLS: ClassVar[str] = "text-muted"
+    ON: ClassVar[str] = ""
+    OFF: ClassVar[str] = ""
+
+    BINDINGS = [("enter", "toggle", "Toggle"), ("space", "toggle", "Toggle")]
+
+    value: reactive[bool] = reactive(False, init=False)
+
+    class Changed(Message):
+        def __init__(self, toggle: _Toggle, value: bool) -> None:
+            super().__init__()
+            self.toggle = toggle
+            self.value = value
+
+        @property
+        def control(self) -> _Toggle:
+            return self.toggle
+
+    def __init__(self, label: str = "", value: bool = False, cls: str = "", *, on_cls: str = "",
+                 off_cls: str = "", id: str | None = None, disabled: bool = False) -> None:
+        super().__init__(id=id, disabled=disabled)
+        self.label = label
+        self.on_style = inline(merge(self.ON_CLS, on_cls))
+        self.off_style = inline(merge(self.OFF_CLS, off_cls))
+        self.set_reactive(type(self).value, value)
+        self._tw_init(cls)
+
+    def on_mount(self) -> None:
+        check_inline(self, self.on_style, self.off_style)
+
+    def toggle(self) -> None:
+        self.value = not self.value
+
+    def action_toggle(self) -> None:
+        self.toggle()
+
+    def on_click(self, event: events.Click) -> None:
+        event.stop()
+        self.toggle()
+
+    def watch_value(self, value: bool) -> None:
+        self.post_message(self.Changed(self, value))
+
+    def render(self) -> RenderResult:
+        mark = Content(self.ON if self.value else self.OFF).stylize(
+            (self.on_style if self.value else self.off_style).style)
+        if not self.label:
+            return mark
+        return mark + Content(" ") + Content.from_markup(apply_transforms(self.label, self.transforms))
+
+
+class Checkbox(_Toggle):
+    """A checkbox with a label. Posts `Checkbox.Changed` (`.value`).
+
+    Checkbox("Copy trades", True, on_cls="text-success")
+    """
+
+    ON: ClassVar[str] = "[✓]"
+    OFF: ClassVar[str] = "[ ]"
+
+    class Changed(_Toggle.Changed):
+        """Handled by `on_checkbox_changed`."""
+
+
+class Switch(_Toggle):
+    """An on/off switch with an optional label. Posts `Switch.Changed` (`.value`).
+
+    Switch("Live mode", True)
+    """
+
+    ON: ClassVar[str] = "━━●"
+    OFF: ClassVar[str] = "○━━"
+
+    class Changed(_Toggle.Changed):
+        """Handled by `on_switch_changed`."""
+
+
+class RadioGroup(Tw, Widget, can_focus=True):
+    """One choice out of a few, one per line. Arrows or a click select.
+
+    RadioGroup(["Kelly", "Fixed", "Off"], value=0)    # posts RadioGroup.Changed
+    """
+
+    DEFAULT_CLS = "w-auto h-auto cursor-pointer focus:bg-boost/50"
+    ON_CLS: ClassVar[str] = "text-primary bold"
+    OFF_CLS: ClassVar[str] = "text-muted"
+    ON: ClassVar[str] = "◉"
+    OFF: ClassVar[str] = "○"
+
+    BINDINGS = [("up,left", "move(-1)", "Previous"), ("down,right", "move(1)", "Next")]
+
+    index: reactive[int] = reactive(0, init=False)
+
+    class Changed(Message):
+        def __init__(self, group: RadioGroup, index: int) -> None:
+            super().__init__()
+            self.group = group
+            self.index = index
+
+        @property
+        def value(self) -> str:
+            return self.group.options[self.index]
+
+        @property
+        def control(self) -> RadioGroup:
+            return self.group
+
+    def __init__(self, options: Sequence[str], value: int = 0, cls: str = "", *, on_cls: str = "",
+                 off_cls: str = "", id: str | None = None) -> None:
+        if not options:
+            raise ValueError("RadioGroup needs at least one option")
+        super().__init__(id=id)
+        self.options = list(options)
+        self.on_style = inline(merge(self.ON_CLS, on_cls))
+        self.off_style = inline(merge(self.OFF_CLS, off_cls))
+        self.set_reactive(RadioGroup.index, self.validate_index(value))
+        self._tw_init(cls)
+
+    @property
+    def value(self) -> str:
+        return self.options[self.index]
+
+    def validate_index(self, index: int) -> int:
+        return max(0, min(len(self.options) - 1, index))
+
+    def on_mount(self) -> None:
+        check_inline(self, self.on_style, self.off_style)
+
+    def watch_index(self, index: int) -> None:
+        self.post_message(self.Changed(self, index))
+
+    def action_move(self, step: int) -> None:
+        self.index = (self.index + step) % len(self.options)
+
+    def on_click(self, event: events.Click) -> None:
+        event.stop()
+        if 0 <= event.y < len(self.options):
+            self.index = event.y
+
+    def render(self) -> RenderResult:
+        lines = []
+        for i, option in enumerate(self.options):
+            on = i == self.index
+            style = (self.on_style if on else self.off_style).style
+            lines.append(Content(self.ON if on else self.OFF).stylize(style) + Content(" ")
+                         + Content(option).stylize(style if on else ""))
+        return Content("\n").join(lines)
+
+
+# --------------------------------------------------------------------------- #
+# Text entry (Textual's widgets, restyled)
+# --------------------------------------------------------------------------- #
+
+class Input(Tw, TextualInput):
+    """Textual's `Input`, styled with class strings. Same events (`Input.Changed`,
+    `Input.Submitted`) and options (`validators=`, `restrict=` ...).
+
+    Input(placeholder="Search markets…", cls="w-40")
+    """
+
+    DEFAULT_CLS = "w-full h-3 px-1 border-round border-line bg-surface text-foreground focus:border-primary"
+
+    def __init__(self, value: str = "", cls: str = "", *, placeholder: str = "", password: bool = False,
+                 id: str | None = None, **kwargs: Any) -> None:
+        super().__init__(value, placeholder, password=password, id=id, **kwargs)
+        self._tw_init(cls)
+
+
+class Select(Tw, TextualSelect):
+    """Textual's `Select`, styled with class strings. Posts `Select.Changed`.
+
+    Select([("Macro", "macro"), ("Crypto", "crypto")], prompt="Category")
+
+    `cls` styles the outer widget; `current_cls` the closed box and
+    `overlay_cls` the open list. `group-focus:` in `current_cls` follows the
+    Select's focus.
+    """
+
+    DEFAULT_CLS = "w-full h-auto"
+    CURRENT_CLS: ClassVar[str] = "border-round border-line bg-surface text-foreground group-focus:border-primary"
+    OVERLAY_CLS: ClassVar[str] = "border-round border-primary bg-surface"
+
+    def __init__(self, options: Iterable[tuple[str, Any]], cls: str = "", *, prompt: str = "Select",
+                 value: Any = TextualSelect.NULL, allow_blank: bool = True, current_cls: str = "",
+                 overlay_cls: str = "", id: str | None = None, **kwargs: Any) -> None:
+        super().__init__(options, prompt=prompt, value=value, allow_blank=allow_blank, id=id, **kwargs)
+        self.add_class("group")  # so `group-focus:` in current_cls follows the Select's focus
+        self.current_cls = merge(self.CURRENT_CLS, current_cls)
+        self.overlay_cls = merge(self.OVERLAY_CLS, overlay_cls)
+        self._tw_init(cls)
+
+    def on_mount(self) -> None:
+        # Select builds its parts in compose(); style them once they exist.
+        tw(self.query_one("SelectCurrent"), self.current_cls)
+        tw(self.query_one("SelectOverlay"), self.overlay_cls)

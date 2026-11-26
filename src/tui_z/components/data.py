@@ -31,9 +31,8 @@ from textual.strip import Strip
 from textual.visual import Visual
 from textual.widget import Widget
 
-from ..core.tw import Tw, transform_markup
+from ..core.tw import Tw, check_inline, transform_markup
 from ..styling.engine import apply_transforms, merge
-from ..styling.errors import TailError
 from ..styling.inline import Inline, column, inline, layout_columns, row_variants
 
 type Cell = str | tuple[str, str]
@@ -90,13 +89,7 @@ class LineView(Tw, ScrollView):
     # -- plumbing ------------------------------------------------------------
     def _check_inline(self, *styles: Inline) -> None:
         """Validate theme colors used by inline styles (once the app is known)."""
-        if not self.is_attached:
-            return
-        variables = getattr(self.app, "theme_variables", None) or {}
-        for style in styles:
-            for var in style.variables:
-                if var not in variables:
-                    raise TailError(f"unknown color '{var}' in {type(self).__name__} cls")
+        check_inline(self, *styles)
 
     def lines_changed(self) -> None:
         """Call after mutating data: resizes the virtual canvas and repaints."""

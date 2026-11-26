@@ -6,7 +6,9 @@ theme switches.
 """
 
 from .bar import Bar
+from .barchart import BarChart
+from .heatmap import Heatmap
 from .linechart import LineChart
 from .sparkline import Sparkline
 
-__all__ = ["Bar", "LineChart", "Sparkline"]
+__all__ = ["Bar", "BarChart", "Heatmap", "LineChart", "Sparkline"]

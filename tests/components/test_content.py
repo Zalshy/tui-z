@@ -1,6 +1,7 @@
+import pytest
 from helpers import plain
 
-from tui_z import Badge, Label, Stat, Text, compile_cls
+from tui_z import Badge, Kbd, KeyValue, Label, Stat, TailError, Text, compile_cls
 
 
 async def test_text_markup_and_transforms_skip_tags(mount):
@@ -53,3 +54,32 @@ async def test_stat_update_value_and_color(mount):
         await pilot.pause()
         assert stat.value.tw_class == compile_cls(stat.value.applied_cls).name
         assert "text-error" in stat.value.cls
+
+
+async def test_kbd_is_literal_text(mount):
+    k = Kbd("[ctrl]")
+    async with mount(k):
+        assert plain(k) == "[ctrl]" and k.outer_size == (8, 1)
+
+
+async def test_keyvalue_aligns_values_and_updates(mount):
+    kv = KeyValue([("Status", "Live", "text-success"), ("Latency", "[b]12[/b] ms")], "w-30",
+                  key_cls="uppercase")
+    async with mount(kv) as (app, pilot):
+        assert plain(kv).split("\n") == ["STATUS   Live", "LATENCY  12 ms"]
+        kv.set("Latency", "18 ms", "text-warning")
+        kv.set("Region", "eu-west")
+        await pilot.pause()
+        assert kv.get("Latency") == "18 ms" and kv.get("nope") is None
+        assert kv.outer_size.height == 3
+        kv.remove_key("Status")
+        await pilot.pause()
+        assert plain(kv).split("\n")[0].startswith("LATENCY")
+        assert plain(KeyValue()) == ""
+
+
+async def test_keyvalue_unknown_color_raises(mount):
+    kv = KeyValue([("a", "b")])
+    async with mount(kv):
+        with pytest.raises(TailError, match="nope"):
+            kv.set("a", "b", "text-nope")

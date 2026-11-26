@@ -6,6 +6,12 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
+- Notifications: `app.toast(...)` shows a `Toast` in a corner (`TW_TOASTS`), with variants, a countdown that pauses on hover, an action button and a `×N` count for repeats. Textual's `notify()` goes through it too (`TW_TOASTS = None` keeps Textual's). `NotificationCenter` lists every toast with an unread count.
+- Feedback: `Alert`, `Progress` (including indeterminate), `Spinner`, `Dialog`.
+- Controls: `Checkbox`, `Switch`, `RadioGroup`, and restyled `Input` and `Select`.
+- Navigation: `TabView` / `TabPane` / `Tabs`, `KeyHints`.
+- Content: `KeyValue`, `Kbd`.
+- Charts: `BarChart` (with `BarChart.histogram`), `Heatmap`.
 - `normal-case` undoes a default `uppercase` / `lowercase` / `capitalize` (as `tracking-normal` already did for tracking). Within each group, the last transform wins.
 - Opacity on arbitrary colors: `bg-[#102030]/50`.
 - `widget.applied_cls`: the full class string compiled onto a component (its `DEFAULT_CLS` plus yours), for debugging.
@@ -20,6 +26,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 - `Sidebar.cls` returned the full internal string (border and width included) instead of your class string, and a `set_cls()` on a sidebar was lost at the next toggle.
 - `add_cls()` on a `Sidebar` merged onto the internal string.
+- Clicking a `Button` no longer also counts as a click on the widget that contains it.
 
 ## [0.1.0] - unreleased
 

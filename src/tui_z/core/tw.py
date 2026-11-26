@@ -19,6 +19,8 @@ from textual.app import active_app
 from textual.widget import Widget
 
 from ..styling.engine import Compiled, apply_transforms, compile_cls, merge
+from ..styling.errors import TailError
+from ..styling.inline import Inline
 from . import registry
 
 
@@ -80,10 +82,15 @@ class Tw:
         """The user part of the class string (without DEFAULT_CLS)."""
         return self._tw_cls
 
+    def _tw_defaults(self) -> str:
+        """The defaults under the user cls. Override for per-instance defaults
+        (a Toast's variant color); the result must start with `base_cls()`."""
+        return self.base_cls()
+
     @property
     def applied_cls(self) -> str:
         """The full string compiled onto the widget: DEFAULT_CLS, then the rest."""
-        return merge(self.base_cls(), self._tw_cls)
+        return merge(self._tw_defaults(), self._tw_cls)
 
     @property
     def tw_class(self) -> str:
@@ -95,7 +102,7 @@ class Tw:
         if cls == self._tw_cls and self._tw_compiled is not None:
             return  # unchanged: skip compile lookup + class churn
         self._tw_cls = cls
-        self._tw_compiled = _attach(self, merge(self.base_cls(), cls), self._tw_compiled)  # type: ignore[arg-type]
+        self._tw_compiled = _attach(self, self.applied_cls, self._tw_compiled)  # type: ignore[arg-type]
         self._tw_changed()
 
     def add_cls(self, cls: str) -> None:
@@ -119,3 +126,18 @@ def transform_markup(text: str, transforms: tuple[str, ...]) -> str:
         return text
     parts = _MARKUP_TAG.split(text)
     return "".join(p if _MARKUP_TAG.fullmatch(p) else apply_transforms(p, transforms) for p in parts)
+
+
+def check_inline(widget: Widget, *styles: Inline) -> None:
+    """Raise `TailError` if an inline style uses a color the theme lacks.
+
+    Components that draw styled spans themselves (tables, logs, charts) call
+    this; it is a no-op until the widget is attached to an app.
+    """
+    if not widget.is_attached:
+        return
+    variables = getattr(widget.app, "theme_variables", None) or {}
+    for style in styles:
+        for var in style.variables:
+            if var not in variables:
+                raise TailError(f"unknown color '{var}' in {type(widget).__name__} cls")
