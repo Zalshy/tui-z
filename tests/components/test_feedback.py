@@ -89,13 +89,14 @@ async def test_toast_close_button_and_action():
 async def test_hover_pauses_the_countdown():
     app = Toasts()
     async with app.run_test() as pilot:
-        toast = app.toast("hover me", timeout=0.3)
+        toast = app.toast("hover me", timeout=0.8)
         await pilot.pause()
+        await pilot.wait_for_animation()  # let it slide in under the pointer
         await pilot.hover(toast)
-        await pilot.pause(0.6)
+        await pilot.pause(1.0)
         assert not toast.dismissed
         await pilot.hover("#body")
-        await pilot.pause(0.6)
+        await pilot.pause(1.0)
         assert toast.dismissed
 
 
@@ -120,7 +121,7 @@ async def test_stack_keeps_at_most_max_toasts():
         for i in range(4):
             app.toast(f"m{i}", timeout=None)
             await pilot.pause()
-        assert [t.message for t in stack(app).toasts] == ["m2", "m3"]
+        assert [t.message for t in stack(app).toasts] == ["m3", "m2"]  # top-right: newest first
         assert ("m0", "replaced") in app.dismissed
 
 
@@ -155,6 +156,39 @@ async def test_top_positions_put_the_newest_first():
         assert s.styles.dock == "top"
 
 
+@pytest.mark.parametrize(("position", "side"), [("top-right", 1), ("bottom-left", -1)])
+async def test_toasts_slide_in_from_their_side(position, side):
+    class App(Toasts):
+        TW_TOASTS = position
+
+    app = App()
+    async with app.run_test(size=(100, 30)) as pilot:
+        toast = app.toast("slide", timeout=None)
+        await pilot.pause(0.05)
+        start = toast.styles.offset.x.value
+        assert start * side > 0  # starts off to that side
+        await pilot.wait_for_animation()
+        assert toast.styles.offset.x.value == 0
+        assert toast.region.right == 99 if side > 0 else toast.region.x == 1
+
+
+async def test_no_slide_when_centered_or_animations_are_off():
+    class Center(Toasts):
+        TW_TOASTS = "top-center"
+
+    app = Center()
+    async with app.run_test() as pilot:
+        toast = app.toast("still", timeout=None)
+        await pilot.pause()
+        assert toast.slide_from is None and toast.styles.offset.x.value == 0
+    app = Toasts()
+    app.animation_level = "none"
+    async with app.run_test() as pilot:
+        toast = app.toast("still", timeout=None)
+        await pilot.pause()
+        assert toast.slide_from == "right" and toast.styles.offset.x.value == 0
+
+
 def test_stack_rejects_unknown_position():
     with pytest.raises(ValueError, match="position"):
         ToastStack(position="middle")
@@ -167,7 +201,7 @@ async def test_notify_goes_through_toasts():
         app.notify("Disk full", severity="error", timeout=10)
         await pilot.pause()
         toasts = stack(app).toasts
-        assert [(t.variant, t.title, t.timeout) for t in toasts] == [("info", "Disk", 0.3), ("error", "", 10)]
+        assert [(t.variant, t.title, t.timeout) for t in toasts] == [("error", "", 10), ("info", "Disk", 0.3)]
         assert not app._notifications  # Textual's own notifications are unused
 
 

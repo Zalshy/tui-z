@@ -8,7 +8,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
-- Notifications: `app.toast(...)` shows a `Toast` in a corner (`TW_TOASTS`), with variants, a countdown that pauses on hover, an action button and a `×N` count for repeats. Textual's `notify()` goes through it too (`TW_TOASTS = None` keeps Textual's). `NotificationCenter` lists every toast with an unread count.
+- Notifications: `app.toast(...)` shows a `Toast` in the top-right corner (`TW_TOASTS` picks another), sliding in from the side, with variants, a countdown that pauses on hover, an action button and a `×N` count for repeats. Textual's `notify()` goes through it too (`TW_TOASTS = None` keeps Textual's). `NotificationCenter` lists every toast with an unread count.
 - Feedback: `Alert`, `Progress` (including indeterminate), `Spinner`, `Dialog`.
 - Controls: `Checkbox`, `Switch`, `RadioGroup`, and restyled `Input` and `Select`.
 - Navigation: `TabView` / `TabPane` / `Tabs`, `KeyHints`.

@@ -37,7 +37,7 @@ class TwApp(App):
     TW_MAX_CHUNKS: ClassVar[int] = 32
     TW_THEMES: ClassVar[tuple[str, ...]] = THEME_NAMES
     """Themes cycled by `action_next_theme` / `action_prev_theme`."""
-    TW_TOASTS: ClassVar[str | None] = "bottom-right"
+    TW_TOASTS: ClassVar[str | None] = "top-right"
     """Where toasts appear (`top-left` ... `bottom-right`); None keeps Textual's notify()."""
     TW_TOAST_MAX: ClassVar[int] = 4
     """Most toasts on screen at once; the oldest is dismissed for a new one."""
@@ -97,7 +97,7 @@ class TwApp(App):
         if stacks:
             stack = stacks.first()
         else:
-            stack = ToastStack(position=self.TW_TOASTS or "bottom-right", max_toasts=self.TW_TOAST_MAX)
+            stack = ToastStack(position=self.TW_TOASTS or "top-right", max_toasts=self.TW_TOAST_MAX)
             self.screen.mount(stack)
         return stack.push(toast)
 
