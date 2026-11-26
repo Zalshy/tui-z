@@ -31,7 +31,7 @@ def module_name(path: Path) -> str:
 
 def imports(path: Path) -> list[tuple[str, int]]:
     """Absolute module names imported by a file, with line numbers."""
-    tree = ast.parse(path.read_text())
+    tree = ast.parse(path.read_text(encoding="utf-8"))
     package = module_name(path) if path.name == "__init__.py" else module_name(path).rpartition(".")[0]
     out = []
     for node in ast.walk(tree):
