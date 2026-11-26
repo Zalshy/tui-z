@@ -66,6 +66,7 @@ async def test_toast_without_timeout_stays_until_clicked():
     async with app.run_test() as pilot:
         toast = app.toast("Sticky", timeout=None)
         await pilot.pause(0.5)
+        await pilot.wait_for_animation()
         assert not toast.dismissed and toast.countdown is None
         await pilot.click(toast)
         await pilot.pause()
@@ -79,6 +80,7 @@ async def test_toast_close_button_and_action():
         closable = app.toast("one", timeout=None)
         acting = app.toast("two", timeout=None, action=("Retry", lambda: ran.append(1)))
         await pilot.pause()
+        await pilot.wait_for_animation()  # clicks land once they've slid in
         await pilot.click(closable.query_one("_Close"))
         await pilot.click(acting.query_one(Button))
         await pilot.pause()
